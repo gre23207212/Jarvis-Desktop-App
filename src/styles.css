@@ -173,6 +173,7 @@
   50% { transform: scale(1.12); opacity: 1; }
 }
 @utility animate-spin-slow { animation: spin-slow 18s linear infinite; }
+@utility animate-spin-fast { animation: spin-slow 3s linear infinite; }
 @utility animate-spin-rev { animation: spin-rev 12s linear infinite; }
 @utility animate-core { animation: core-pulse 2.4s ease-in-out infinite; }
 @utility animate-core-fast { animation: core-pulse 0.5s ease-in-out infinite; }

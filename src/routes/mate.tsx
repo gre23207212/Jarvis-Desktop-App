@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { Mic, X } from "lucide-react";
+import reactor from "@/assets/jarvis-reactor.png.asset.json";
 
 export const Route = createFileRoute("/mate")({
   head: () => ({
@@ -143,9 +144,19 @@ function Mate() {
         aria-label="Jarvis"
         className="mate-drag relative h-32 w-32 shrink-0"
       >
-        <span className={`absolute inset-0 rounded-full border-2 border-dashed border-primary/50 ${mode === "sleeping" ? "" : "animate-spin-slow"}`} />
-        <span className={`absolute inset-4 rounded-full border-4 border-primary/20 border-t-primary border-b-primary ${mode === "sleeping" ? "" : "animate-spin-rev"}`} />
-        <span className={`absolute inset-10 rounded-full shadow-glow ${mode === "listening" ? "bg-accent" : "bg-primary"} ${mode === "sleeping" ? "opacity-30" : fast ? "animate-core-fast" : "animate-core"}`} />
+        <span className={`absolute inset-6 rounded-full bg-primary/30 blur-xl ${mode === "sleeping" ? "opacity-20" : fast ? "animate-core-fast" : "animate-core"}`} />
+        <img
+          src={reactor.url}
+          alt=""
+          draggable={false}
+          className={`pointer-events-none absolute inset-0 h-full w-full ${mode === "sleeping" ? "opacity-30" : fast ? "animate-spin-fast" : "animate-spin-slow"} ${mode === "listening" ? "hue-rotate-30 saturate-150" : ""}`}
+        />
+        <img
+          src={reactor.url}
+          alt=""
+          draggable={false}
+          className={`pointer-events-none absolute inset-5 h-[calc(100%-2.5rem)] w-[calc(100%-2.5rem)] opacity-60 mix-blend-screen ${mode === "sleeping" ? "hidden" : "animate-spin-rev"}`}
+        />
         {mode === "sleeping" && <span className="absolute -top-1 right-2 font-display text-xs text-primary">z z</span>}
       </button>
     </div>
