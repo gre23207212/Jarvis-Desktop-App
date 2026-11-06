@@ -162,6 +162,10 @@
   text-shadow: 0 0 12px oklch(0.82 0.14 210 / 70%);
 }
 
+/* Electron desktop mate: the orb drags the window, controls stay clickable */
+.mate-drag { -webkit-app-region: drag; cursor: grab; }
+.mate-nodrag { -webkit-app-region: no-drag; }
+
 @keyframes spin-slow { to { transform: rotate(360deg); } }
 @keyframes spin-rev { to { transform: rotate(-360deg); } }
 @keyframes core-pulse {
