@@ -40,7 +40,7 @@ function Mate() {
     const t = setInterval(() => {
       const idle = Date.now() - lastActive.current;
       if (idle > 180000) setMode((m) => (m === "idle" ? "sleeping" : m));
-      else if (idle > 60000 && Math.random() < 0.15) setBubble(PERKS[Math.floor(Math.random() * PERKS.length)]);
+      else if (idle > 60000 && Math.random() < 0.15) setBubble(PERKS[Math.floor(Math.random() * PERKS.length)] ?? "");
     }, 20000);
     return () => clearInterval(t);
   }, []);
