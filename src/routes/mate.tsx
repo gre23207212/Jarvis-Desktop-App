@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import { AudioLines, Pencil } from "lucide-react";
 import reactor from "@/assets/jarvis-reactor.png.asset.json";
 import { loadMemory, memoryCommand, memoryContext, saveConversation } from "@/lib/memory";
+import { selectDiscordChannel } from "@/lib/discord-selection";
+import type { DiscordServer } from "@/lib/jarvis";
 import { bridge, liveContext, loadSettings, parseAction, parseWake, personaPrompt, relayLines, saveSettings, sentiment, SIZES, SYSTEM_PROMPT, type Action, type Settings } from "@/lib/jarvis";
 
 export const Route = createFileRoute("/mate")({
@@ -31,6 +33,7 @@ function Mate() {
   const [hover, setHover] = useState(false);
   const [settings, setSettings] = useState<Settings | null>(null);
   const history = useRef<Msg[]>([]);
+  const pendingDiscord = useRef<{ action: Extract<Action, { kind: "discord" }>; channels: DiscordServer[] } | null>(null);
   const warned = useRef(false);
   const modeRef = useRef<Mode>("idle");
   const want = useRef<"wake" | "command" | "none">("none");
@@ -104,12 +107,44 @@ function Mate() {
     if (!t) return;
     window.clearTimeout(hideTimer.current);
     setInput(""); setTyping(false); setYou(t); setReply("");
+    const s = settingsRef.current ?? loadSettings();
+    const pending = pendingDiscord.current;
+    const parsed = parseAction(t);
+    if (pending && /^(?:cancel|never mind|nevermind|stop)[.!?]*$/i.test(t)) {
+      pendingDiscord.current = null;
+      endListen();
+      setReply("Cancelled, sir."); speak("Cancelled, sir."); return;
+    }
+    if (pending && (!parsed || parsed.kind === "discord")) {
+      const selection = selectDiscordChannel(pending.channels, parsed?.kind === "discord" ? parsed.server || t : t);
+      const action = parsed?.kind === "discord" && parsed.message ? { ...pending.action, message: parsed.message } : pending.action;
+      if (selection.kind !== "selected") {
+        askDiscordChannel(action, pending.channels, true);
+        return;
+      }
+      pendingDiscord.current = null;
+      await performAction({ ...action, server: selection.channel.name }, s);
+      return;
+    }
+    if (parsed) pendingDiscord.current = null;
+    if (parsed?.kind === "discord" && bridge()?.discordJoin) {
+      const selection = selectDiscordChannel(s.discordServers ?? [], parsed.server || t, s.discordLink);
+      // A generic join request does not count as naming a channel.
+      const resolved = selection.kind === "choose" && !parsed.server
+        ? selectDiscordChannel(s.discordServers ?? [], "", s.discordLink)
+        : selection;
+      if (resolved.kind === "choose") {
+        askDiscordChannel(parsed, resolved.channels);
+        return;
+      }
+      await performAction(resolved.kind === "selected" ? { ...parsed, server: resolved.channel.name } : parsed, s);
+      return;
+    }
     const remembered = memoryCommand(t);
     if (remembered) { history.current = loadMemory().history; setReply(remembered); speak(remembered); return; }
     history.current = loadMemory().history;
     history.current = [...history.current, { role: "user" as const, content: t }].slice(-20);
     setM("thinking");
-    const s = settingsRef.current ?? loadSettings();
     let full = "";
     const act = parseAction(t);
     if (act && bridge()?.openApp) {
@@ -178,6 +213,29 @@ function Mate() {
   };
 
   // ---------- skills on the PC ----------
+  const askDiscordChannel = (action: Extract<Action, { kind: "discord" }>, channels: DiscordServer[], retry = false) => {
+    pendingDiscord.current = { action, channels };
+    want.current = "none";
+    setM("thinking");
+    const question = `${retry ? "I couldn't identify one channel, sir. " : ""}Which one would you like to join? ${channels.map((channel) => channel.name).join(", ")}.`;
+    setReply(question);
+    speak(question, () => {
+      setM("thinking");
+      window.setTimeout(() => {
+        if (pendingDiscord.current?.action === action && want.current === "none") listenNow(question);
+      }, 350);
+    });
+  };
+
+  const performAction = async (action: Action, s: Settings) => {
+    setM("thinking");
+    history.current = [...loadMemory().history, { role: "user" as const, content: action.kind === "discord" ? `Join ${action.server ?? "Discord"}${action.message ? ` and tell them ${action.message}` : ""}` : you }].slice(-20);
+    const said = await runAction(action, s).catch(() => "Something went wrong doing that, sir.");
+    history.current.push({ role: "assistant", content: said });
+    saveConversation(history.current);
+    setReply(said); speak(said);
+  };
+
   const sayIntoCable = async (text: string, cableOnly = false) => {
     const b = bridge();
     const devs = await navigator.mediaDevices.enumerateDevices();
@@ -214,10 +272,11 @@ function Mate() {
   };
 
   const runAction = async (act: Action, s: Settings): Promise<string> => {
-    const b = bridge()!;
+    const b = bridge();
+    if (!b) return "Discord actions are available in the desktop app, sir.";
     if (act.kind === "open") {
-      const r = await b.openApp!(act.app);
-      return r.ok ? `Opening ${r.name}, sir.` : `I couldn't find ${act.app} on this PC, sir.`;
+      const r = await b.openApp?.(act.app);
+      return r?.ok ? `Opening ${r.name}, sir.` : `I couldn't find ${act.app} on this PC, sir.`;
     }
     if (act.kind === "apps") {
       const list = (await b.listApps?.()) ?? [];
@@ -225,17 +284,15 @@ function Mate() {
     }
     if (act.kind === "spotify") {
       setReply(`Searching Spotify for "${act.query}"…`);
-      const r = await b.spotifyPlay!(act.query);
-      return r.ok ? `Playing ${act.query} on Spotify, sir.` : `${r.error} sir.`;
+      const r = await b.spotifyPlay?.(act.query);
+      return r?.ok ? `Playing ${act.query} on Spotify, sir.` : `${r?.error ?? "Spotify is unavailable"} sir.`;
     }
     // Discord
-    const servers = s.discordServers ?? [];
-    const want = act.server?.toLowerCase();
-    const preset = want ? servers.find((x) => x.name.toLowerCase().includes(want) || want.includes(x.name.toLowerCase())) : undefined;
-    if (want && !preset && servers.length) return `I don't have a saved channel called ${act.server}, sir. Add it in the Mainframe under Skills.`;
-    const link = preset?.link || s.discordLink || servers[0]?.link;
-    if (!link) return "Save your Discord voice channel link in the Mainframe under Skills first, sir.";
-    const r = await b.discordJoin!(link);
+    const selection = selectDiscordChannel(s.discordServers ?? [], act.server, s.discordLink);
+    if (selection.kind === "missing") return "Save your Discord voice channel link in the Mainframe under Skills first, sir.";
+    if (selection.kind === "choose") return "Please tell me the saved voice channel name, sir.";
+    if (!b.discordJoin) return "Discord actions are available in the desktop app, sir.";
+    const r = await b.discordJoin(selection.channel.link);
     if (r.error) return "That Discord link doesn't look right, sir. Copy the voice channel's link again in the Mainframe.";
     if (r.joined === false) return "I opened the channel, sir, but couldn't press Join Voice. Click it and ask me again.";
     if (!act.message) return "Joining your Discord call, sir.";

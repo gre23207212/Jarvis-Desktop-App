@@ -10,3 +10,4 @@
 - [x] Mainframe settings window: brain (built-in, local Gemma via Ollama, own key/model), voice
 - [x] Repackage Windows zip
 - [x] Hop in a VC on Discord and tell my friends…' → join saved channel, speak via VB-Cable
+- [x] Ask for a saved Discord channel and listen for the name before joining; preserve the relay message. Selection tested in browser with a simulated desktop connection; real microphone/Windows Discord remains unverified.
