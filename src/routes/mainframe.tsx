@@ -106,6 +106,36 @@ function Mainframe() {
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [elVoices, setElVoices] = useState<ElevenVoice[]>([]);
   const [elMsg, setElMsg] = useState("");
+  const [cableTest, setCableTest] = useState("");
+  const [testingCable, setTestingCable] = useState(false);
+  const testCable = async () => {
+    setTestingCable(true); setCableTest("Checking CABLE Input playback…");
+    let ctx: AudioContext | undefined;
+    let player: HTMLAudioElement | undefined;
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const outputs = devices.filter(d => d.kind === "audiooutput" && !["default", "communications"].includes(d.deviceId));
+      const target = outputs.find(d => /cable input/i.test(d.label) && (!s?.cableIn || d.label.toLowerCase().includes(s.cableIn.toLowerCase())));
+      if (!target) throw new Error("CABLE Input was not found among browser playback devices.");
+      ctx = new AudioContext();
+      const dest = ctx.createMediaStreamDestination();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      gain.gain.value = 0.12;
+      osc.frequency.value = 440;
+      osc.connect(gain).connect(dest);
+      player = new Audio();
+      if (!player.setSinkId) throw new Error("This browser does not support selecting an audio output.");
+      player.srcObject = dest.stream;
+      await player.setSinkId(target.deviceId);
+      await player.play();
+      osc.start();
+      await new Promise(resolve => setTimeout(resolve, 1100));
+      osc.stop();
+      setCableTest("Test tone sent to CABLE Input. In Discord, temporarily choose CABLE Output as the microphone and check whether its input meter moves. This test does not confirm Discord received the sound.");
+    } catch (error) { setCableTest(`Test failed: ${String(error)}`); }
+    finally { player?.pause(); if (ctx) await ctx.close().catch(() => {}); setTestingCable(false); }
+  };
   const [mics, setMics] = useState<MediaDeviceInfo[]>([]);
   const [devs, setDevs] = useState<{ inputs: string[]; outputs: string[] }>({ inputs: [], outputs: [] });
   useEffect(() => {
@@ -406,6 +436,10 @@ function Mainframe() {
                       options={[{ value: "", label: `Auto (${auto})` }, ...devs[list].map((n) => ({ value: n, label: n }))]} />
                   </div>
                 ))}
+              </div>
+              <div className="mt-2 space-y-2">
+                <button type="button" className={btn} disabled={testingCable} onClick={testCable}>{testingCable ? "TESTING…" : "TEST VB-CABLE"}</button>
+                {cableTest && <p role="status" className="font-mono text-[10px] text-term-text">{cableTest}</p>}
               </div>
               <div className="mt-2 rounded border border-primary/40 p-2 font-mono text-[10px] text-term-text">
                 <p className="font-hud tracking-wider text-primary">ONE-TIME DISCORD SETUP</p>
