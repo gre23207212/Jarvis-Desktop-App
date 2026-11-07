@@ -340,15 +340,17 @@ function Mate() {
     setReply(said); speak(said);
   };
 
+  let cableFailure = "Unknown audio failure";
   const sayIntoCable = async (text: string) => {
+    cableFailure = "Audio playback did not start";
     const b = bridge();
     const s = settingsRef.current;
-    if (!s) return false;
+    if (!s) { cableFailure = "Jarvis settings are unavailable"; return false; }
     stopSpeech();
     const generation = speechGeneration.current;
     const devs = await navigator.mediaDevices.enumerateDevices();
     const cable = s.cableIn ? findAudioOutput(devs, s.cableIn) : devs.find((d) => d.kind === "audiooutput" && !["default", "communications"].includes(d.deviceId) && /cable input/i.test(d.label));
-    if (!cable) return false;
+    if (!cable) { cableFailure = "CABLE Input playback device was not found. Check VB-CABLE installation."; return false; }
     const voices = "speechSynthesis" in window ? speechSynthesis.getVoices() : [];
     const voice = voices.find((x) => x.name === s.voiceName) || voices.find((x) => /en-GB/i.test(x.lang) && /daniel|george|ryan|thomas|male/i.test(x.name)) || voices.find((x) => /en-GB/i.test(x.lang));
     setM("speaking");
@@ -356,7 +358,7 @@ function Mate() {
       const r = await b?.voiceWav?.(text, voice?.name);
       return r?.wav ? (await fetch(`data:audio/wav;base64,${r.wav}`)).blob() : null;
     });
-    if (!blob || generation !== speechGeneration.current) { setM("idle"); return false; }
+    if (!blob || generation !== speechGeneration.current) { cableFailure = blob ? "Speech was interrupted" : "Voice generation failed. Test your ElevenLabs voice or Windows speech engine."; setM("idle"); return false; }
     const src = URL.createObjectURL(blob);
     const toCall = new Audio(src) as HTMLAudioElement & { setSinkId?: (id: string) => Promise<void> };
     const local = new Audio(src) as HTMLAudioElement & { setSinkId?: (id: string) => Promise<void> };
@@ -364,15 +366,16 @@ function Mate() {
     let swapped = false;
     try {
       // Route only call speech into the cable; leave speakers/Discord output alone.
-      if (!toCall.setSinkId) return false;
+      if (!toCall.setSinkId) { cableFailure = "This audio engine does not support selecting a playback device"; return false; }
       await toCall.setSinkId(cable.deviceId);
       const localOutput = s.audioOut ? findAudioOutput(devs, s.audioOut) : undefined;
-      if (localOutput?.deviceId === cable.deviceId || (s.audioOut && !localOutput)) return false;
+      if (localOutput?.deviceId === cable.deviceId || (s.audioOut && !localOutput)) { cableFailure = "Your headphone output is missing or set to CABLE Input"; return false; }
       await local.setSinkId?.(localOutput?.deviceId ?? "default");
       toCall.volume = local.volume = s.volume;
       toCall.playbackRate = local.playbackRate = s.voiceEngine === "system" ? s.rate : 1;
-      swapped = !!(await b?.cableMic?.(true, audio))?.ok;
-      if (!swapped) return false;
+      const switchResult = await b?.cableMic?.(true, audio);
+      swapped = !!switchResult?.ok;
+      if (!swapped) { cableFailure = `Could not switch the Windows microphone: ${switchResult?.error ?? "Desktop bridge unavailable"}`; return false; }
       await new Promise((res) => setTimeout(res, 900));
       if (generation !== speechGeneration.current) return false;
       const completed = new Promise<boolean>((resolve) => {
@@ -381,12 +384,12 @@ function Mate() {
         toCall.onerror = () => { window.clearTimeout(timer); resolve(false); };
       });
       activeAudio.current = [toCall, local];
-      try { await toCall.play(); } catch { toCall.dispatchEvent(new Event("error")); return false; }
+      try { await toCall.play(); } catch (error) { cableFailure = `Playback to CABLE Input failed: ${String(error)}`; toCall.dispatchEvent(new Event("error")); return false; }
       await local.play().catch(() => {});
-      if (!(await completed)) return false;
+      if (!(await completed)) { cableFailure = "Playback stopped, timed out or encountered a media error"; return false; }
       await new Promise((res) => setTimeout(res, 400));
       return true;
-    } catch { return false; }
+    } catch (error) { cableFailure = `Audio routing error: ${String(error)}`; return false; }
     finally {
       toCall.pause(); local.pause(); activeAudio.current = [];
       URL.revokeObjectURL(src);
@@ -476,7 +479,7 @@ function Mate() {
       },
       () => b.discordMute?.() ?? Promise.resolve({ ok: false }),
     );
-    if (result === "failed") return "I joined, sir, but couldn't play the message through VB-Cable. Check your audio setup in the Mainframe.";
+    if (result === "failed") return `I could not deliver the Discord message: ${cableFailure}. Check the Mainframe VB-CABLE test.`;
     return result === "muted" ? `${lines.done}${gameNote} Your Discord microphone is now muted.` : `${lines.done}${gameNote} I couldn't confirm your Discord microphone is muted; please mute it yourself.`;
   };
 
