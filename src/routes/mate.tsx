@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { AudioLines, Pencil } from "lucide-react";
 import reactor from "@/assets/jarvis-reactor.png.asset.json";
+import { loadMemory, memoryCommand, memoryContext, saveConversation } from "@/lib/memory";
 import { bridge, liveContext, loadSettings, parseAction, parseWake, saveSettings, SIZES, SYSTEM_PROMPT, type Action, type Settings } from "@/lib/jarvis";
 
 export const Route = createFileRoute("/mate")({
@@ -47,6 +48,7 @@ function Mate() {
     for (const el of [document.documentElement, document.body]) { el.style.background = "transparent"; el.style.overflow = "hidden"; }
     const s = loadSettings();
     setSettings(s);
+    history.current = loadMemory().history;
     want.current = s.wakeWord ? "wake" : "none";
     const onStorage = () => { const n = loadSettings(); setSettings(n); if (want.current !== "command") want.current = n.wakeWord ? "wake" : "none"; };
     window.addEventListener("storage", onStorage);
@@ -97,6 +99,9 @@ function Mate() {
     if (!t) return;
     window.clearTimeout(hideTimer.current);
     setInput(""); setTyping(false); setYou(t); setReply("");
+    const remembered = memoryCommand(t);
+    if (remembered) { history.current = loadMemory().history; setReply(remembered); speak(remembered); return; }
+    history.current = loadMemory().history;
     history.current = [...history.current, { role: "user" as const, content: t }].slice(-20);
     setM("thinking");
     const s = settingsRef.current ?? loadSettings();
@@ -105,12 +110,13 @@ function Mate() {
     if (act && bridge()?.openApp) {
       const said = await runAction(act, s).catch(() => "Something went wrong doing that, sir.");
       history.current.push({ role: "assistant", content: said });
+      saveConversation(history.current);
       setReply(said);
       speak(said);
       return;
     }
     try {
-      const context = await liveContext(t, history.current);
+      const context = [await liveContext(t, history.current), memoryContext()].filter(Boolean).join("\n\n");
       const system = `${SYSTEM_PROMPT}\n\n${context}`;
       const cloud = async (provider: "builtin" | "chatgpt") => {
         const res = await fetch("/api/chat", {
@@ -157,6 +163,7 @@ function Mate() {
         await cloud(s.brain);
       }
       history.current.push({ role: "assistant", content: full });
+      saveConversation(history.current);
       speak(full);
     } catch (e) {
       setReply(e instanceof Error ? e.message : "Systems malfunction, sir.");

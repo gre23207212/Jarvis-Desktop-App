@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { Mic, MicOff, Send, Volume2, VolumeX } from "lucide-react";
+import { loadMemory, memoryCommand, memoryContext, saveConversation } from "@/lib/memory";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -50,6 +51,8 @@ function Jarvis() {
   messagesRef.current = messages;
 
   useEffect(() => {
+    const saved = loadMemory().history;
+    if (saved.length) setMessages(saved);
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (SR) setCanListen(true);
   }, []);
@@ -73,7 +76,13 @@ function Jarvis() {
     const t = text.trim();
     if (!t || mode === "thinking") return;
     setInput("");
-    const history = [...messagesRef.current, { role: "user" as const, content: t }];
+    const remembered = memoryCommand(t);
+    if (remembered) {
+      setMessages([...loadMemory().history, { role: "user", content: t }, { role: "assistant", content: remembered }]);
+      speak(remembered);
+      return;
+    }
+    const history = [...loadMemory().history, { role: "user" as const, content: t }];
     setMessages([...history, { role: "assistant", content: "" }]);
     setMode("thinking");
     let full = "";
@@ -81,7 +90,7 @@ function Jarvis() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: history.slice(-20) }),
+        body: JSON.stringify({ messages: history.slice(-20), context: memoryContext() }),
       });
       if (!res.ok || !res.body) {
         const err = await res.json().catch(() => ({}));
@@ -114,6 +123,7 @@ function Jarvis() {
         }
       }
       setMode("idle");
+      saveConversation([...history, { role: "assistant", content: full }]);
       speak(full);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Systems malfunction, sir.";

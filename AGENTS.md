@@ -29,3 +29,4 @@ use the editor.
 - **Secrets.** Lovable manages them. Do not put secret values in the repo.
 <!-- LOVABLE:END -->
 - Desktop shell (electron/) loads published /mate, /tray-menu, /mainframe pages; settings live in browser storage shared across those windows, and local/custom AI calls go through the main process to avoid browser restrictions.
+- Both chat surfaces use the shared browser-storage memory module for explicit saved facts and recent conversation; this keeps desktop windows consistent without cloud account requirements.

@@ -1,14 +1,14 @@
-# Welcome to your Lovable project
+# Jarvis Desktop Mate
 
-This project was built with [Lovable](https://lovable.dev).
+A voice-enabled desktop companion with local and cloud brains, app controls, and saved memory.
 
-## Build with Lovable
+## Windows desktop package
 
-Open your project in the [Lovable editor](https://lovable.dev) and keep building.
+Run `npm install`, then `npm run dist`. The desktop shell loads the published Jarvis pages.
 
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: connect the project to GitHub and every change made in Lovable is committed straight to your repository.
-- **Full ownership**: this code is yours. Push to your repository and your changes sync back into Lovable, ready for your next prompt.
+## Memory
+
+Saved facts and recent conversation stay in this computer's browser storage. Say “Remember that…” to save a fact or “Forget everything” to clear memory. Manage individual facts in Mainframe. Relevant memory is sent to the selected AI provider when chatting; it does not sync between computers.
 
 ## Development
 

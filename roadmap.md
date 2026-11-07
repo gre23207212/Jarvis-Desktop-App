@@ -1,4 +1,7 @@
 # Jarvis roadmap
+- [x] Remove visible platform branding without breaking hosting
+- [x] Persist Jarvis memory and conversation context; add memory management
+- [x] Test saved memory and conversation recall
 - [x] New cyan J logo: exe icon, taskbar, tray, favicon
 - [x] "Hey Jarvis" wake word using default mic
 - [x] Only logo visible; hover shows pencil + speak buttons; terminal-style type box

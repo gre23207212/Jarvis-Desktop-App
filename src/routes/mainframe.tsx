@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
-import { Minus, X } from "lucide-react";
+import { Minus, X, Trash2, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { clearMemory, forget, loadMemory, remember, type JarvisMemory } from "@/lib/memory";
 import { bridge, loadSettings, saveSettings, SYSTEM_PROMPT, VERSION, type Brain, type Settings } from "@/lib/jarvis";
 
 export const Route = createFileRoute("/mainframe")({
@@ -48,11 +50,17 @@ function Mainframe() {
   const [dl, setDl] = useState<{ text: string; pct: number | null } | null>(null);
   const [cable, setCable] = useState(false);
   const [apps, setApps] = useState<number | null>(null);
+  const [memory, setMemory] = useState<JarvisMemory>({ facts: [], history: [] });
+  const [fact, setFact] = useState("");
 
   useEffect(() => {
     document.documentElement.style.background = "transparent";
     document.body.style.background = "transparent";
     setS(loadSettings());
+    const refreshMemory = () => setMemory(loadMemory());
+    refreshMemory();
+    window.addEventListener("storage", refreshMemory);
+    window.addEventListener("jarvis-memory-changed", refreshMemory);
     const lv = () => setVoices(speechSynthesis.getVoices().filter((v) => v.lang.startsWith("en")));
     lv();
     speechSynthesis.onvoiceschanged = lv;
@@ -64,7 +72,7 @@ function Mainframe() {
       setCable(d.some((x) => x.kind === "audiooutput" && /cable input/i.test(x.label)));
     }).catch(() => {});
     bridge()?.listApps?.().then((a) => setApps(a.length)).catch(() => {});
-    return off;
+    return () => { off?.(); window.removeEventListener("storage", refreshMemory); window.removeEventListener("jarvis-memory-changed", refreshMemory); };
   }, []);
 
   if (!s) return null;
@@ -206,6 +214,23 @@ function Mainframe() {
             {!cable && <button className={btn} onClick={() => b?.openUrl?.("https://vb-audio.com/Cable/")}>GET VB-CABLE</button>}
           </div>
           <p className="mt-1 font-mono text-[10px] text-term-dim">In Discord, set Voice → Input Device to "CABLE Output" so the call hears Jarvis.</p>
+        </Section>
+
+        <Section title="MEMORY" right={<span className="font-mono text-[10px] text-term-dim">{memory.facts.length} saved facts</span>}>
+          <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); remember(fact); setFact(""); }}>
+            <input className={field} aria-label="New memory" placeholder="A fact to remember…" value={fact} onChange={(e) => setFact(e.target.value)} maxLength={1000} />
+            <Button type="submit" variant="outline" size="icon" aria-label="Save memory" title="Save memory" disabled={!fact.trim()}><Plus size={16} /></Button>
+          </form>
+          <ul className="mt-2 max-h-40 space-y-1 overflow-y-auto">
+            {memory.facts.map((f) => <li key={f} className="flex items-center justify-between gap-2 border-b border-primary/20 py-1 font-mono text-xs text-term-text">
+              <span className="min-w-0 break-words">{f}</span>
+              <Button variant="ghost" size="icon" className="shrink-0" onClick={() => forget(f)} aria-label={`Forget ${f}`} title="Forget memory"><Trash2 size={14} /></Button>
+            </li>)}
+          </ul>
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+            <span className="font-mono text-[10px] text-term-dim">Stored on this PC · {memory.history.length} recent messages · Sent to your chosen AI when chatting</span>
+            <Button variant="outline" size="sm" disabled={!memory.facts.length && !memory.history.length} onClick={() => { if (window.confirm("Clear all saved facts and conversation?")) clearMemory(); }}><Trash2 size={14} /> Clear memory</Button>
+          </div>
         </Section>
 
         <Section title="JARVIS" right={<span className="font-mono text-[10px] text-term-dim">v{VERSION}</span>}>
