@@ -12,16 +12,17 @@ const W = 380, H = 520;
 let mate, menu, mainframe, tray;
 
 app.setAppUserModelId("Jarvis.DesktopMate");
+app.setName("Jarvis Desktop");
 
 // ---------- Install / uninstall (custom screens, per-user, no admin) ----------
 const IS_WIN = process.platform === "win32";
-const INSTALL_DIR = path.join(process.env.LOCALAPPDATA || os.homedir(), "Programs", "Jarvis");
+const INSTALL_DIR = path.join(process.env.LOCALAPPDATA || os.homedir(), "Programs", "Jarvis Desktop");
 const UNINST_KEY = "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\JarvisDesktopMate";
 const SRC_DIR = path.dirname(process.execPath);
 const INSTALLED_EXE = path.join(INSTALL_DIR, path.basename(process.execPath));
 const shortcutPaths = () => ({
-  desktop: path.join(app.getPath("desktop"), "Jarvis.lnk"),
-  start: path.join(process.env.APPDATA || "", "Microsoft", "Windows", "Start Menu", "Programs", "Jarvis.lnk"),
+  desktop: path.join(app.getPath("desktop"), "Jarvis Desktop.lnk"),
+  start: path.join(process.env.APPDATA || "", "Microsoft", "Windows", "Start Menu", "Programs", "Jarvis Desktop.lnk"),
 });
 const MODE = process.argv.includes("--uninstall") ? "uninstall"
   : IS_WIN && app.isPackaged && !process.argv.includes("--portable") && !SRC_DIR.toLowerCase().startsWith(INSTALL_DIR.toLowerCase()) ? "install"
@@ -51,14 +52,14 @@ ipcMain.handle("setup-run", async (e, mode, opts = {}) => {
       await fs.promises.cp(SRC_DIR, INSTALL_DIR, { recursive: true, force: true });
       step("Creating shortcuts…", 0.75);
       const icon = INSTALLED_EXE; // the exe carries the Jarvis icon
-      const link = { target: INSTALLED_EXE, cwd: INSTALL_DIR, icon, iconIndex: 0, appUserModelId: "Jarvis.DesktopMate", description: "Jarvis Desktop Mate" };
+      const link = { target: INSTALLED_EXE, cwd: INSTALL_DIR, icon, iconIndex: 0, appUserModelId: "Jarvis.DesktopMate", description: "Jarvis Desktop" };
       const sc = shortcutPaths();
       fs.mkdirSync(path.dirname(sc.start), { recursive: true });
       shell.writeShortcutLink(sc.start, link);
       if (opts.desktop) shell.writeShortcutLink(sc.desktop, link);
       step("Registering with Windows…", 0.9);
       const add = (name, type, data) => reg(["add", UNINST_KEY, "/v", name, "/t", type, "/d", data, "/f"]);
-      await add("DisplayName", "REG_SZ", "Jarvis Desktop Mate");
+      await add("DisplayName", "REG_SZ", "Jarvis Desktop");
       await add("DisplayIcon", "REG_SZ", icon);
       await add("Publisher", "REG_SZ", "Jarvis");
       await add("DisplayVersion", "REG_SZ", app.getVersion());
@@ -537,7 +538,7 @@ app.whenReady().then(() => {
   createMenu();
   const img = nativeImage.createFromPath(path.join(__dirname, process.platform === "win32" ? "tray.ico" : "tray.png"));
   tray = new Tray(img);
-  tray.setToolTip("Jarvis");
+  tray.setToolTip("Jarvis Desktop");
   tray.on("click", showMenu);
   tray.on("right-click", showMenu);
 });
