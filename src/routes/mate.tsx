@@ -341,7 +341,7 @@ function Mate() {
           <div data-hit className="jarvis-term w-full px-4 py-3 font-mono text-[13px] leading-relaxed">
             {typing ? (
               <form onSubmit={(e) => { e.preventDefault(); send(input); }} className="flex items-center gap-1">
-                <span className="text-term-dim">&gt; you:</span>
+                <span className="text-term-dim">&gt; You:</span>
                 <input
                   autoFocus
                   value={input}
@@ -353,7 +353,7 @@ function Mate() {
               </form>
             ) : (
               <>
-                {you && <div className="text-term-dim">&gt; you: <span className="text-term-text">{you}</span></div>}
+                {you && <div className="text-term-dim">&gt; You: <span className="text-term-text">{you}</span></div>}
                 <div>
                   <span className="font-bold text-primary">JARVIS:</span>{" "}
                   <span className="text-term-reply">{mode === "thinking" && !reply ? "processing" : reply}</span>
