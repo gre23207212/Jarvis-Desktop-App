@@ -4,6 +4,7 @@ import { Minus, X, Trash2, Plus, Check, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PhonePairing } from "@/components/phone-pairing";
 import { clearMemory, forget, loadMemory, remember, type JarvisMemory } from "@/lib/memory";
+import { listElevenVoices, elevenSpeech, type ElevenVoice } from "@/lib/elevenlabs";
 import { bridge, loadSettings, saveSettings, SYSTEM_PROMPT, VERSION, type Brain, type Settings, type Size } from "@/lib/jarvis";
 
 export const Route = createFileRoute("/mainframe")({
@@ -103,6 +104,8 @@ function Mainframe() {
   const [tab, setTab] = useState<Tab>("mainframe");
   const [s, setS] = useState<Settings | null>(null);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [elVoices, setElVoices] = useState<ElevenVoice[]>([]);
+  const [elMsg, setElMsg] = useState("");
   const [mics, setMics] = useState<MediaDeviceInfo[]>([]);
   const [devs, setDevs] = useState<{ inputs: string[]; outputs: string[] }>({ inputs: [], outputs: [] });
   useEffect(() => {
@@ -183,7 +186,18 @@ function Mainframe() {
     setStatus("✓ Gemma is installed. Jarvis now thinks on your PC.");
   };
 
-  const testVoice = () => {
+  const loadEl = async () => {
+    setElMsg("Loading your voices…");
+    try { const v = await listElevenVoices(s.elevenKey.trim()); setElVoices(v); setElMsg(`✓ Found ${v.length} voices (${v.filter((x) => x.custom).length} of your own).`); }
+    catch (e) { setElMsg("✗ " + (e as Error).message); }
+  };
+  const testVoice = async () => {
+    if (s.voiceEngine === "eleven" && s.elevenKey && s.elevenVoice) {
+      try {
+        const a = new Audio(URL.createObjectURL(await elevenSpeech("At your service, sir.", s.elevenKey.trim(), s.elevenVoice.trim(), s.elevenModel)));
+        a.volume = s.volume; await a.play(); setElMsg("✓ ElevenLabs voice working."); return;
+      } catch (e) { setElMsg(`✗ ${(e as Error).message} — using the default voice instead.`); }
+    }
     const u = new SpeechSynthesisUtterance("At your service, sir.");
     u.voice = voices.find((v) => v.name === s.voiceName) || voices.find((v) => /en-GB/.test(v.lang)) || null;
     u.volume = s.volume; u.rate = s.rate;
@@ -290,6 +304,23 @@ function Mainframe() {
                     options={[{ value: "", label: "Best British voice" }, ...voices.map((v) => ({ value: v.name, label: v.name, note: v.lang }))]} />
                   <button className={btn} onClick={testVoice}>TEST</button>
                 </div>
+                <HudSelect label="Voice engine" value={s.voiceEngine} onChange={(v) => set({ voiceEngine: v })}
+                  options={[{ value: "system", label: "Default voice (free)" }, { value: "eleven", label: "ElevenLabs (your own account)" }]} />
+                {s.voiceEngine === "eleven" && (
+                  <div className="space-y-2 border border-primary/30 p-2">
+                    <input className={field} type="password" value={s.elevenKey} onChange={(e) => set({ elevenKey: e.target.value })} placeholder="Your ElevenLabs API key" aria-label="ElevenLabs API key" />
+                    <button className={btn} onClick={loadEl} disabled={!s.elevenKey.trim()}>LOAD MY VOICES</button>
+                    {elVoices.length > 0 && (
+                      <HudSelect label="ElevenLabs voice" value={s.elevenVoice} onChange={(v) => set({ elevenVoice: v })}
+                        options={elVoices.map((v) => ({ value: v.id, label: v.name, note: v.custom ? "yours" : "" }))} />
+                    )}
+                    <input className={field} value={s.elevenVoice} onChange={(e) => set({ elevenVoice: e.target.value })} placeholder="Voice ID (paste your custom voice ID)" aria-label="ElevenLabs voice ID" />
+                    <HudSelect label="ElevenLabs model" value={s.elevenModel} onChange={(v) => set({ elevenModel: v })}
+                      options={[{ value: "eleven_flash_v2_5", label: "Flash v2.5", note: "fastest, cheapest" }, { value: "eleven_turbo_v2_5", label: "Turbo v2.5" }, { value: "eleven_multilingual_v2", label: "Multilingual v2", note: "best quality" }]} />
+                    <p className="font-mono text-[10px] text-term-dim">Uses your own ElevenLabs credits. Custom voice: elevenlabs.io → Voices → your voice → copy Voice ID. If credits run out or the key fails, Jarvis switches back to the default voice.</p>
+                    {elMsg && <p className="break-words font-mono text-[10px] text-term-reply">{elMsg}</p>}
+                  </div>
+                )}
                 <Slider label="LOUDNESS" value={s.volume} min={0} max={1} step={0.05} onChange={(v) => set({ volume: v })} />
                 <Slider label="SPEED" value={s.rate} min={0.6} max={1.6} step={0.05} onChange={(v) => set({ rate: v })} />
                 <HudSelect label="Microphone" value={s.micId} onChange={(v) => set({ micId: v })}

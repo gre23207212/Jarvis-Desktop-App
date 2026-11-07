@@ -10,6 +10,7 @@ import { selectDiscordChannel } from "@/lib/discord-selection";
 import { deliverDiscordMessage } from "@/lib/discord-relay";
 import { ASK_GAME, findGame } from "@/lib/game-detect";
 import { useRemoteDesktop } from "@/hooks/use-remote-desktop";
+import { elevenSpeech } from "@/lib/elevenlabs";
 import type { DiscordServer } from "@/lib/jarvis";
 import { asksQuestion, bridge, liveContext, loadSettings, parseAction, parseWake, personaPrompt, relayLines, saveSettings, sentiment, SIZES, SYSTEM_PROMPT, type Action, type Bridge, type Settings } from "@/lib/jarvis";
 
@@ -117,7 +118,26 @@ function Mate() {
   // ---------- voice out ----------
   const speak = (text: string, then?: () => void) => {
     const s = settingsRef.current;
-    if (!s?.voiceOn || !("speechSynthesis" in window)) { setM("idle"); then?.(); return; }
+    if (!s?.voiceOn) { setM("idle"); then?.(); return; }
+    const finish = () => { setM("idle"); if (then) { then(); return; } hideTimer.current = window.setTimeout(() => { if (modeRef.current === "idle") { setReply(""); setYou(""); } }, 8000); };
+    if (s.voiceEngine === "eleven" && s.elevenKey && s.elevenVoice) {
+      setM("speaking"); setMood(text);
+      speechSynthesis.cancel();
+      elevenSpeech(text, s.elevenKey, s.elevenVoice, s.elevenModel).then((blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = new Audio(url);
+        a.volume = s.volume ?? 1;
+        a.onended = () => { URL.revokeObjectURL(url); finish(); };
+        a.onerror = () => { URL.revokeObjectURL(url); systemSpeak(text, then); };
+        return a.play();
+      }).catch(() => systemSpeak(text, then)); // out of credits / bad key / offline -> default voice
+      return;
+    }
+    systemSpeak(text, then);
+  };
+  const systemSpeak = (text: string, then?: () => void) => {
+    const s = settingsRef.current!;
+    if (!("speechSynthesis" in window)) { setM("idle"); then?.(); return; }
     const u = new SpeechSynthesisUtterance(text);
     const v = speechSynthesis.getVoices();
     u.voice = v.find((x) => x.name === s.voiceName) || v.find((x) => /en-GB/i.test(x.lang) && /daniel|george|ryan|thomas|male/i.test(x.name)) || v.find((x) => /en-GB/i.test(x.lang)) || null;

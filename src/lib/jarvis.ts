@@ -30,6 +30,11 @@ export type Settings = {
   cableOut: string;
   /** After relaying in a call, ask friends what they're playing and start that game. */
   askGame: boolean;
+  /** "system" = built-in voices; "eleven" = user's own ElevenLabs account (falls back to system on any failure). */
+  voiceEngine: "system" | "eleven";
+  elevenKey: string;
+  elevenVoice: string;
+  elevenModel: string;
 };
 export type DiscordServer = { name: string; link: string };
 
@@ -59,6 +64,10 @@ export const DEFAULTS: Settings = {
   cableIn: "",
   cableOut: "",
   askGame: true,
+  voiceEngine: "system",
+  elevenKey: "",
+  elevenVoice: "JBFqnCBsd6RMkjVDRZzb",
+  elevenModel: "eleven_flash_v2_5",
 };
 
 export const SIZES: Record<Size, number> = { small: 0.7, medium: 1, large: 1.3, huge: 1.6 };
