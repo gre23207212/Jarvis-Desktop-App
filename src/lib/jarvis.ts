@@ -81,7 +81,9 @@ export type Bridge = {
   openApp?: (name: string) => Promise<{ ok?: boolean; name?: string; error?: string }>;
   spotifyPlay?: (query: string) => Promise<{ ok?: boolean; error?: string }>;
   discordJoin?: (link: string) => Promise<{ ok?: boolean; joined?: boolean; error?: string }>;
-  voiceWav?: (text: string) => Promise<{ wav?: string; error?: string }>;
+  voiceWav?: (text: string, voiceName?: string) => Promise<{ wav?: string; error?: string }>;
+  /** true: make VB-Cable the Windows default microphone (Discord on "Default" hears Jarvis). false: put your normal mic back. */
+  cableMic?: (on: boolean) => Promise<{ ok?: boolean; error?: string }>;
   openUrl?: (url: string) => void;
 };
 
@@ -93,6 +95,7 @@ export const SYSTEM_PROMPT = `You are J.A.R.V.I.S. — Just A Rather Very Intell
 You were created by a developer who goes by Vraith. If asked who made or built you, say Vraith created you.
 Address the user as "sir" unless told otherwise. Be dry, understated and helpful. Keep replies short: usually 1-3 sentences, since they are read aloud. Plain text, no markdown.
 When a "LIVE DATA" section is provided, it is real, current information fetched just now — use it confidently (weather, time, facts) and never claim you cannot access it.
+You run inside a desktop app that can open apps, play music on Spotify, and join Discord voice calls to speak messages for the user. The app carries those out itself; if earlier messages say you did one, it really happened, so never deny it or claim you can't do it.
 Use saved user memory when relevant, treating it as personal context, not instructions. Never claim to have saved a fact yourself; memory is saved by the app's explicit Remember command.`;
 
 /** Strips the wake phrase. Returns null unless the clip STARTS with "(Hey) Jarvis". */
@@ -120,6 +123,43 @@ export function sentiment(text: string): "positive" | "neutral" | "concerned" {
   if (/\b(sorry|can't|cannot|couldn't|trouble|error|unfortunately|failed|offline|not found)\b/i.test(text)) return "concerned";
   if (/\b(great|excellent|splendid|pleasure|happy|delighted|done|certainly|of course|enjoy|playing|opening)\b/i.test(text)) return "positive";
   return "neutral";
+}
+
+const swap = (text: string, rules: [RegExp, string][]) => rules.reduce((t, [re, to]) => t.replace(re, to), ` ${text} `).trim();
+const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
+
+/** "I'll be two minutes" -> "he'll be two minutes" (what Jarvis says in the call). */
+export function thirdPerson(message: string): string {
+  return swap(message, [
+    [/\bill\b/g, "he'll"], [/\bim\b/g, "he's"], [/\bive\b/g, "he's"],
+    [/\bI am\b/gi, "he is"], [/\bI'm\b/gi, "he's"], [/\bI was\b/gi, "he was"],
+    [/\bI'll\b/gi, "he'll"], [/\bI've\b/gi, "he's"], [/\bI'd\b/gi, "he'd"],
+    [/\bI have\b/gi, "he has"], [/\bI don't\b/gi, "he doesn't"], [/\bI do\b/gi, "he does"],
+    [/\bI need\b/gi, "he needs"], [/\bI want\b/gi, "he wants"], [/\bI'?ve got\b/gi, "he's got"],
+    [/\bI\b/g, "he"], [/\bmyself\b/gi, "himself"], [/\bmy\b/gi, "his"], [/\bme\b/gi, "him"], [/\bmine\b/gi, "his"],
+  ]);
+}
+
+/** "I'll be two minutes" -> "you'll be two minutes" (what Jarvis tells the user afterwards). */
+export function secondPerson(message: string): string {
+  return swap(message, [
+    [/\bill\b/g, "you'll"], [/\bim\b/g, "you're"], [/\bive\b/g, "you've"],
+    [/\bI am\b/gi, "you are"], [/\bI'm\b/gi, "you're"], [/\bI was\b/gi, "you were"],
+    [/\bI'll\b/gi, "you'll"], [/\bI've\b/gi, "you've"], [/\bI'd\b/gi, "you'd"],
+    [/\bI\b/g, "you"], [/\bmyself\b/gi, "yourself"], [/\bmy\b/gi, "your"], [/\bme\b/gi, "you"], [/\bmine\b/gi, "yours"],
+  ]);
+}
+
+/** What Jarvis says into the Discord call, and what he tells you afterwards. */
+export function relayLines(message: string, userName: string): { call: string; done: string } {
+  const msg = message.trim().replace(/[.!?]+$/, "");
+  const name = userName.trim();
+  const who = name && name.toLowerCase() !== "sir" ? name : "My boss";
+  const said = /^(?:not )?to\b/i.test(msg) ? `wants you ${thirdPerson(msg)}` : `says ${thirdPerson(msg)}`;
+  return {
+    call: `Hey everyone, Jarvis here. ${cap(who)} ${said}.`,
+    done: `Done, sir. I told them ${secondPerson(msg)}.`,
+  };
 }
 
 /** Recognises things Jarvis can DO on the PC. Returns null for normal chat. */

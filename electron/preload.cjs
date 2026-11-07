@@ -19,7 +19,8 @@ contextBridge.exposeInMainWorld("jarvis", {
   openApp: (name) => ipcRenderer.invoke("open-app", name),
   spotifyPlay: (query) => ipcRenderer.invoke("spotify-play", query),
   discordJoin: (link) => ipcRenderer.invoke("discord-join", link),
-  voiceWav: (text) => ipcRenderer.invoke("voice-wav", text),
+  cableMic: (on) => ipcRenderer.invoke("cable-mic", on),
+  voiceWav: (text, voiceName) => ipcRenderer.invoke("voice-wav", text, voiceName),
   openUrl: (url) => ipcRenderer.send("open-url", url),
   onCmd,
 });

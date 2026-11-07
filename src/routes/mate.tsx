@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { AudioLines, Pencil } from "lucide-react";
 import reactor from "@/assets/jarvis-reactor.png.asset.json";
 import { loadMemory, memoryCommand, memoryContext, saveConversation } from "@/lib/memory";
-import { bridge, liveContext, loadSettings, parseAction, parseWake, personaPrompt, saveSettings, sentiment, SIZES, SYSTEM_PROMPT, type Action, type Settings } from "@/lib/jarvis";
+import { bridge, liveContext, loadSettings, parseAction, parseWake, personaPrompt, relayLines, saveSettings, sentiment, SIZES, SYSTEM_PROMPT, type Action, type Settings } from "@/lib/jarvis";
 
 export const Route = createFileRoute("/mate")({
   head: () => ({
@@ -183,18 +183,33 @@ function Mate() {
     const devs = await navigator.mediaDevices.enumerateDevices();
     const cable = devs.find((d) => d.kind === "audiooutput" && /cable input/i.test(d.label));
     if (!cable) return false;
-    const r = await b?.voiceWav?.(text);
+    // Same voice Jarvis normally speaks with, not a different Windows voice.
+    const voices = "speechSynthesis" in window ? speechSynthesis.getVoices() : [];
+    const s = settingsRef.current;
+    const voice = voices.find((x) => x.name === s?.voiceName) || voices.find((x) => /en-GB/i.test(x.lang) && /daniel|george|ryan|thomas|male/i.test(x.name)) || voices.find((x) => /en-GB/i.test(x.lang));
+    const r = await b?.voiceWav?.(text, voice?.name);
     if (!r?.wav) return false;
     const src = `data:audio/wav;base64,${r.wav}`;
     const toCall = new Audio(src) as HTMLAudioElement & { setSinkId?: (id: string) => Promise<void> };
     await toCall.setSinkId?.(cable.deviceId);
-    toCall.volume = settingsRef.current?.volume ?? 1;
-    if (cableOnly) { await toCall.play().catch(() => {}); return true; }
-    const local = new Audio(src); // so you hear it too
-    setM("speaking");
-    await Promise.all([toCall.play(), local.play()]).catch(() => {});
-    await new Promise((res) => { toCall.onended = res; setTimeout(res, 20000); });
-    setM("idle");
+    toCall.volume = s?.volume ?? 1;
+    // Point Windows' default mic at VB-Cable so Discord (on "Default") hears Jarvis, then switch it back after.
+    const swapped = (await b?.cableMic?.(true).catch(() => null))?.ok;
+    try {
+      if (swapped) await new Promise((res) => setTimeout(res, 900));
+      if (cableOnly) { await toCall.play().catch(() => {}); }
+      else {
+        const local = new Audio(src); // so you hear it too
+        local.volume = toCall.volume;
+        setM("speaking");
+        await Promise.all([toCall.play(), local.play()]).catch(() => {});
+      }
+      await new Promise((res) => { toCall.onended = res; setTimeout(res, 20000); });
+      await new Promise((res) => setTimeout(res, 400));
+    } finally {
+      if (swapped) await b?.cableMic?.(false).catch(() => null);
+      setM("idle");
+    }
     return true;
   };
 
@@ -226,9 +241,9 @@ function Mate() {
     if (!act.message) return "Joining your Discord call, sir.";
     setReply("Joining your Discord call, sir…");
     await new Promise((res) => setTimeout(res, 2500));
-    const who = s.userName && s.userName.toLowerCase() !== "sir" ? s.userName : "my boss";
-    const ok = await sayIntoCable(`Message from ${who}: ${act.message}`);
-    return ok ? `I've told them: "${act.message}"` : "I joined, sir, but I need VB-Cable installed to speak in the call. There's a button in the Mainframe.";
+    const lines = relayLines(act.message, s.userName ?? "");
+    const ok = await sayIntoCable(lines.call);
+    return ok ? lines.done : "I joined, sir, but I need VB-Cable installed to speak in the call. There's a button in the Mainframe.";
   };
 
   // ---------- voice in: one mic loop for both "Hey Jarvis" and click-to-talk ----------

@@ -390,16 +390,102 @@ for ($i = 0; $i -lt 24; $i++) {
   return { ok: true, joined: r.endsWith("ok") };
 });
 
-// Windows' own voice rendered to a WAV so Jarvis can play it into any output (e.g. VB-Cable).
-ipcMain.handle("voice-wav", async (_e, text) => {
+// Jarvis's own voice rendered to a WAV so it can be played into any output (e.g. VB-Cable).
+// Uses the same Windows voice the mate speaks with (e.g. "Microsoft George"), falling back to any male English voice.
+ipcMain.handle("voice-wav", async (_e, text, voiceName) => {
   if (!IS_WIN) return { error: "Windows only" };
   const file = path.join(os.tmpdir(), `jarvis-say-${Date.now()}.wav`);
-  await ps(`Add-Type -AssemblyName System.Speech
+  const env = { JF: file, JT: String(text).slice(0, 600), JV: String(voiceName || "") };
+  await ps(`Add-Type -AssemblyName System.Runtime.WindowsRuntime
+$asTask = ([System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object { $_.Name -eq 'AsTask' -and $_.GetParameters().Count -eq 1 -and $_.GetParameters()[0].ParameterType.Name -like 'IAsyncOperation*' })[0]
+function Wait-Op($op, [Type]$t) { $task = $asTask.MakeGenericMethod($t).Invoke($null, @($op)); $task.Wait(-1) | Out-Null; $task.Result }
+$null = [Windows.Media.SpeechSynthesis.SpeechSynthesizer,Windows.Media.SpeechSynthesis,ContentType=WindowsRuntime]
+$null = [Windows.Storage.Streams.DataReader,Windows.Storage.Streams,ContentType=WindowsRuntime]
+$s = New-Object Windows.Media.SpeechSynthesis.SpeechSynthesizer
+$all = [Windows.Media.SpeechSynthesis.SpeechSynthesizer]::AllVoices
+$v = $all | Where-Object { $env:JV -and $env:JV.StartsWith($_.DisplayName) } | Select-Object -First 1
+if (-not $v) { $v = $all | Where-Object { $_.Language -eq 'en-GB' -and [string]$_.Gender -eq 'Male' } | Select-Object -First 1 }
+if (-not $v) { $v = $all | Where-Object { $_.Language -like 'en-*' -and [string]$_.Gender -eq 'Male' } | Select-Object -First 1 }
+if ($v) { $s.Voice = $v }
+try { $s.Options.AudioPitch = 0.9 } catch {}
+$st = Wait-Op ($s.SynthesizeTextToStreamAsync($env:JT)) ([Windows.Media.SpeechSynthesis.SpeechSynthesisStream])
+$size = [uint32]$st.Size
+$r = New-Object Windows.Storage.Streams.DataReader($st.GetInputStreamAt(0))
+$null = Wait-Op ($r.LoadAsync($size)) ([uint32])
+$bytes = New-Object byte[] $size
+$r.ReadBytes($bytes)
+[IO.File]::WriteAllBytes($env:JF, $bytes)`, env);
+  if (!fs.existsSync(file)) {
+    // Older Windows: classic voices, still preferring a male one.
+    await ps(`Add-Type -AssemblyName System.Speech
 $s = New-Object System.Speech.Synthesis.SpeechSynthesizer
-$v = $s.GetInstalledVoices() | Where-Object { $_.VoiceInfo.Culture.Name -eq 'en-GB' } | Select-Object -First 1
-if ($v) { $s.SelectVoice($v.VoiceInfo.Name) }
-$s.SetOutputToWaveFile($env:JF); $s.Speak($env:JT); $s.Dispose()`, { JF: file, JT: String(text).slice(0, 600) });
+try { $s.SelectVoiceByHints([System.Speech.Synthesis.VoiceGender]::Male) } catch {}
+$s.SetOutputToWaveFile($env:JF); $s.Speak($env:JT); $s.Dispose()`, env);
+  }
   try { const b = fs.readFileSync(file); fs.rmSync(file, { force: true }); return { wav: b.toString("base64") }; } catch { return { error: "voice failed" }; }
+});
+
+// Swaps the Windows default microphone to VB-Cable ("CABLE Output") while Jarvis talks in a call, then puts yours back.
+// Discord set to Input Device "Default" follows this automatically, so nothing needs clicking in Discord.
+const AUDIO_CS = `
+using System; using System.Runtime.InteropServices;
+[StructLayout(LayoutKind.Sequential)] public struct PKey { public Guid fmt; public int pid; }
+[StructLayout(LayoutKind.Explicit)] public struct PVar { [FieldOffset(0)] public short vt; [FieldOffset(8)] public IntPtr p; [FieldOffset(16)] public IntPtr pad; }
+[Guid("886d8eeb-8cf2-4446-8d02-cdba1dbdcf99"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+interface IPropStore { int GetCount(out int c); int GetAt(int i, out PKey k); int GetValue(ref PKey k, out PVar v); }
+[Guid("D666063F-1587-4E43-81F1-B948E807363F"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+interface IMMDev { int Activate(ref Guid iid, int ctx, IntPtr p, out IntPtr o); int OpenPropertyStore(int a, out IPropStore s); int GetId([MarshalAs(UnmanagedType.LPWStr)] out string id); int GetState(out int s); }
+[Guid("0BD7A1BE-7A1A-44DB-8397-CC5392387B5E"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+interface IMMDevs { int GetCount(out int n); int Item(int i, out IMMDev d); }
+[Guid("A95664D2-9614-4F35-A746-DE8DB63617E6"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+interface IMMEnum { int EnumAudioEndpoints(int flow, int mask, out IMMDevs d); int GetDefaultAudioEndpoint(int flow, int role, out IMMDev d); }
+[ComImport, Guid("BCDE0395-E52F-467C-8E3D-C4579291692E")] class MMEnum {}
+[Guid("f8679f50-850a-41cf-9c72-430f290290c8"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+interface IPolicy {
+  int A([MarshalAs(UnmanagedType.LPWStr)] string id, IntPtr x); int B([MarshalAs(UnmanagedType.LPWStr)] string id, int b, IntPtr x);
+  int C([MarshalAs(UnmanagedType.LPWStr)] string id); int D([MarshalAs(UnmanagedType.LPWStr)] string id, IntPtr x, IntPtr y);
+  int E([MarshalAs(UnmanagedType.LPWStr)] string id, int b, IntPtr x, IntPtr y); int F([MarshalAs(UnmanagedType.LPWStr)] string id, IntPtr x);
+  int G([MarshalAs(UnmanagedType.LPWStr)] string id, IntPtr x); int H([MarshalAs(UnmanagedType.LPWStr)] string id, IntPtr x);
+  int I([MarshalAs(UnmanagedType.LPWStr)] string id, IntPtr k, IntPtr v); int J([MarshalAs(UnmanagedType.LPWStr)] string id, IntPtr k, IntPtr v);
+  int SetDefaultEndpoint([MarshalAs(UnmanagedType.LPWStr)] string id, int role);
+}
+[ComImport, Guid("870af99c-171d-4f9e-af0d-e63df40c2bc9")] class PolicyClient {}
+public static class JAudio {
+  static IMMEnum En() { return (IMMEnum)new MMEnum(); }
+  public static string Default(int flow, int role) { IMMDev d; if (En().GetDefaultAudioEndpoint(flow, role, out d) != 0 || d == null) return ""; string id; d.GetId(out id); return id; }
+  public static string Find(int flow, string match) {
+    IMMDevs all; En().EnumAudioEndpoints(flow, 1, out all); int n; all.GetCount(out n);
+    PKey k = new PKey(); k.fmt = new Guid("a45c254e-df1c-4efd-8020-67d146a850e0"); k.pid = 14;
+    for (int i = 0; i < n; i++) { IMMDev d; all.Item(i, out d); IPropStore s; d.OpenPropertyStore(0, out s); PVar v; s.GetValue(ref k, out v);
+      string name = v.p == IntPtr.Zero ? "" : Marshal.PtrToStringUni(v.p);
+      if (name.IndexOf(match, StringComparison.OrdinalIgnoreCase) >= 0) { string id; d.GetId(out id); return id; } }
+    return "";
+  }
+  public static void Set(string id, int role) { ((IPolicy)new PolicyClient()).SetDefaultEndpoint(id, role); }
+}`;
+let savedMics = null; // your mic for each Windows role (console, multimedia, communications)
+ipcMain.handle("cable-mic", async (_e, on) => {
+  if (!IS_WIN) return { error: "Windows only" };
+  const head = `Add-Type -TypeDefinition @'\n${AUDIO_CS}\n'@\n`;
+  if (on) {
+    const r = await ps(`${head}$cable = [JAudio]::Find(1, 'CABLE Output')
+if (-not $cable) { 'nocable'; exit }
+$prev = @(0,1,2 | ForEach-Object { [JAudio]::Default(1, $_) }) -join '|'
+0,1,2 | ForEach-Object { [JAudio]::Set($cable, $_) }
+"ok:$prev"`);
+    if (r.includes("nocable")) return { error: "VB-Cable isn't installed" };
+    const m = r.match(/ok:(.*)$/m);
+    if (!m) return { error: "Couldn't switch the microphone" };
+    if (!savedMics) savedMics = m[1]; // keep the very first one if called twice
+    return { ok: true };
+  }
+  if (!savedMics) return { ok: true };
+  const ids = savedMics;
+  savedMics = null;
+  const r = await ps(`${head}$ids = $env:JIDS.Split('|')
+for ($i = 0; $i -lt 3; $i++) { if ($ids[$i]) { [JAudio]::Set($ids[$i], $i) } }
+'ok'`, { JIDS: ids });
+  return r.endsWith("ok") ? { ok: true } : { error: "Couldn't restore the microphone" };
 });
 
 app.on("second-instance", () => mate && mate.show());
