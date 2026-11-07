@@ -39,6 +39,14 @@ Commands are relayed through the backend, and recent command text/results are st
 
 Saved facts and recent conversation stay in this computer's browser storage. Say “Remember that…” to save a fact or “Forget everything” to clear memory. Manage individual facts in Mainframe. Relevant memory is sent to the selected AI provider when chatting; it does not sync between computers.
 
+## Startup welcome and news
+
+Opening the desktop app (including `npm start` or Windows startup) welcomes you as boss with the PC's local date and time, then offers recent news. Say yes or type yes; Jarvis asks which topic interests you and saves it in memory. On later launches it offers that topic again. Say “different topic” to change it or “no thanks” to skip. Clearing memory removes the topic too.
+
+Headlines are fetched from Google News public RSS only after you opt in, include publisher links and dates, and are limited to recent dated stories. Unavailable news is reported rather than invented. Jarvis ends with a friendly reminder about “Hey Jarvis” and the pencil icon. Voice replies follow your existing voice setting. Reloading the companion or opening Mainframe does not repeat the greeting.
+
+The welcome, real news retrieval, remembered topic and decline flow were checked in the browser with a simulated desktop connection and speech completion. Actual Windows startup, audible playback and microphone answers still need testing on your PC. Publish the latest pages and use the updated desktop source to allow launch speech without clicking first.
+
 ## Development
 
 Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).

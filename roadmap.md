@@ -1,4 +1,5 @@
 # Jarvis roadmap
+- [x] Explain phone control and add launch welcome, local date/time, opt-in public news, remembered topic and friendly closing. Browser flow verified with real public headlines and simulated desktop/speech; Windows launch and audible microphone interaction remain unverified.
 - [x] Remove visible platform branding without breaking hosting
 - [x] Persist Jarvis memory and conversation context; add memory management
 - [x] Test saved memory and conversation recall

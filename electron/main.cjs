@@ -102,7 +102,7 @@ function createMate() {
     y: workArea.y + workArea.height - H,
     frame: false, transparent: true, resizable: false, alwaysOnTop: true,
     skipTaskbar: false, hasShadow: false, backgroundColor: "#00000000",
-    title: "Jarvis", icon: ICON, webPreferences: webPrefs,
+    title: "Jarvis", icon: ICON, webPreferences: { ...webPrefs, autoplayPolicy: "no-user-gesture-required" },
   });
   mate.setAlwaysOnTop(true, "floating");
   mate.setVisibleOnAllWorkspaces(true);

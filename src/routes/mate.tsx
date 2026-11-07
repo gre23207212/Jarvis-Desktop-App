@@ -1,5 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
+import { getRecentNews } from "@/lib/news.functions";
+import { newsTopic, saveNewsTopic, startupGreeting, welcomeAnswer, READY_MESSAGE, type WelcomeStage, type NewsStory } from "@/lib/welcome";
 import { AudioLines, Pencil } from "lucide-react";
 import reactor from "@/assets/jarvis-reactor.png.asset.json";
 import { loadMemory, memoryCommand, memoryContext, saveConversation } from "@/lib/memory";
@@ -27,6 +30,9 @@ type Msg = { role: "user" | "assistant"; content: string };
 type Mode = "idle" | "listening" | "thinking" | "speaking";
 
 function Mate() {
+  const fetchNews = useServerFn(getRecentNews);
+  const welcomeStage = useRef<WelcomeStage>(null);
+  const [newsSources, setNewsSources] = useState<NewsStory[]>([]);
   const [mode, setMode] = useState<Mode>("idle");
   const [you, setYou] = useState("");
   const [reply, setReply] = useState("");
@@ -59,7 +65,7 @@ function Mate() {
       const failed = /couldn't|could not|can't|first, sir|unavailable/i.test(result);
       return { status: failed ? "failed" : "done", result };
     } finally { setM("idle"); }
-  }, () => modeRef.current !== "idle" || !!pendingDiscord.current);
+  }, () => modeRef.current !== "idle" || !!pendingDiscord.current || !!welcomeStage.current);
 
   const setM = (m: Mode) => { modeRef.current = m; setMode(m); try { localStorage.setItem("jarvis-status", JSON.stringify({ mode: m, at: Date.now() })); } catch { /* ignore */ } };
   const setMood = (text: string) => { try { localStorage.setItem("jarvis-mood", JSON.stringify({ mood: sentiment(text), text: text.slice(0, 140), at: Date.now() })); } catch { /* ignore */ } };
@@ -91,7 +97,13 @@ function Mate() {
     });
     if (!s.alwaysOnTop) b?.cmd("always-on-top", false);
     startMic();
-    return () => { window.removeEventListener("storage", onStorage); window.removeEventListener("mousemove", onMove); off?.(); };
+    // Each desktop window session welcomes once; reloads and opening settings do not repeat it.
+    const welcomeTimer = window.setTimeout(() => {
+      if (!b || sessionStorage.getItem("jarvis-welcomed") || modeRef.current !== "idle") return;
+      sessionStorage.setItem("jarvis-welcomed", "yes");
+      askWelcome(startupGreeting(new Date(), newsTopic()), "offer");
+    }, 1600);
+    return () => { window.clearTimeout(welcomeTimer); window.removeEventListener("storage", onStorage); window.removeEventListener("mousemove", onMove); off?.(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -111,11 +123,41 @@ function Mate() {
     u.pitch = 0.9;
     u.volume = s.volume ?? 1;
     u.rate = s.rate ?? 1;
+    setM("speaking");
     setMood(text);
     u.onstart = () => setM("speaking");
     u.onend = u.onerror = () => { setM("idle"); if (then) { then(); return; } hideTimer.current = window.setTimeout(() => { if (modeRef.current === "idle") { setReply(""); setYou(""); } }, 8000); };
     speechSynthesis.cancel();
     speechSynthesis.speak(u);
+  };
+
+  const askWelcome = (text: string, stage: WelcomeStage) => {
+    welcomeStage.current = stage;
+    want.current = "none";
+    setReply(text);
+    speak(text, () => {
+      window.setTimeout(() => {
+        if (welcomeStage.current === stage && stage) listenNow(text);
+      }, 350);
+    });
+  };
+  const finishWelcome = (prefix = "") => {
+    welcomeStage.current = null;
+    endListen();
+    const text = [prefix, READY_MESSAGE].filter(Boolean).join(" ");
+    setReply(text); speak(text);
+  };
+  const readNews = async (topic: string) => {
+    welcomeStage.current = null;
+    saveNewsTopic(topic);
+    want.current = "none";
+    setM("thinking"); setReply(`Checking recent news about ${topic}, boss…`);
+    try {
+      const result = await fetchNews({ data: { topic } });
+      setNewsSources(result.stories);
+      const headlines = result.stories.map((story) => `${story.source}: ${story.title}.`).join(" ");
+      finishWelcome(result.error || `Here are the recent public headlines about ${topic}. ${headlines}`);
+    } catch { finishWelcome("I couldn't reach the news right now, boss. I won't make up an update."); }
   };
 
   // ---------- brain ----------
@@ -125,6 +167,13 @@ function Mate() {
     window.clearTimeout(hideTimer.current);
     setInput(""); setTyping(false); setYou(t); setReply("");
     const s = settingsRef.current ?? loadSettings();
+    const answer = welcomeAnswer(welcomeStage.current, t, newsTopic());
+    if (answer.kind === "finish") { finishWelcome(); return; }
+    if (answer.kind === "topic") { askWelcome("What news topic interests you, boss? For example, world news, science, technology, or sport. I'll remember your choice for next time.", "topic"); return; }
+    // Desktop commands always take priority over a topic answer.
+    if (answer.kind === "news" && !parseAction(t)) { await readNews(answer.topic || "world news"); return; }
+    welcomeStage.current = null;
+    setNewsSources([]);
     const pending = pendingDiscord.current;
     const parsed = parseAction(t);
     if (pending && /^(?:cancel|never mind|nevermind|stop)[.!?]*$/i.test(t)) {
@@ -402,7 +451,7 @@ function Mate() {
     setM("listening");
     setYou(""); setReply(prompt);
     window.clearTimeout(listenTimer.current);
-    listenTimer.current = window.setTimeout(() => { if (want.current === "command" && modeRef.current === "listening") { endListen(); setReply(""); } }, 12000);
+    listenTimer.current = window.setTimeout(() => { if (want.current === "command" && modeRef.current === "listening") { if (welcomeStage.current) finishWelcome(); else { endListen(); setReply(""); } } }, 12000);
   };
   const endListen = () => {
     window.clearTimeout(listenTimer.current);
@@ -469,6 +518,7 @@ function Mate() {
                   <span className="text-term-reply">{mode === "thinking" && !reply ? "processing" : reply}</span>
                   {(mode === "thinking" || mode === "listening") && <span className="term-caret" />}
                 </div>
+                {newsSources.length > 0 && <ul className="mt-2 space-y-1 text-xs text-term-dim">{newsSources.map((story) => <li key={story.url}><a href={story.url} target="_blank" rel="noopener noreferrer" className="text-primary underline">{story.source}</a> · {new Date(story.published).toLocaleDateString("en-GB")}</li>)}</ul>}
               </>
             )}
           </div>
