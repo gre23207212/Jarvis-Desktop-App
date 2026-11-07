@@ -17,6 +17,7 @@ import { Route as RemoteRouteImport } from './routes/remote'
 import { Route as TrayMenuRouteImport } from './routes/tray-menu'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as ApiTranscribeRouteImport } from './routes/api/transcribe'
+import { Route as ApiPublicRemoteRouteImport } from './routes/api/public/remote'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -58,6 +59,11 @@ const ApiTranscribeRoute = ApiTranscribeRouteImport.update({
   path: '/api/transcribe',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicRemoteRoute = ApiPublicRemoteRouteImport.update({
+  id: '/api/public/remote',
+  path: '/api/public/remote',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -68,6 +74,7 @@ export interface FileRoutesByFullPath {
   '/tray-menu': typeof TrayMenuRoute
   '/api/chat': typeof ApiChatRoute
   '/api/transcribe': typeof ApiTranscribeRoute
+  '/api/public/remote': typeof ApiPublicRemoteRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -78,6 +85,7 @@ export interface FileRoutesByTo {
   '/tray-menu': typeof TrayMenuRoute
   '/api/chat': typeof ApiChatRoute
   '/api/transcribe': typeof ApiTranscribeRoute
+  '/api/public/remote': typeof ApiPublicRemoteRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -89,6 +97,7 @@ export interface FileRoutesById {
   '/tray-menu': typeof TrayMenuRoute
   '/api/chat': typeof ApiChatRoute
   '/api/transcribe': typeof ApiTranscribeRoute
+  '/api/public/remote': typeof ApiPublicRemoteRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -101,6 +110,7 @@ export interface FileRouteTypes {
     | '/tray-menu'
     | '/api/chat'
     | '/api/transcribe'
+    | '/api/public/remote'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -111,6 +121,7 @@ export interface FileRouteTypes {
     | '/tray-menu'
     | '/api/chat'
     | '/api/transcribe'
+    | '/api/public/remote'
   id:
     | '__root__'
     | '/'
@@ -121,6 +132,7 @@ export interface FileRouteTypes {
     | '/tray-menu'
     | '/api/chat'
     | '/api/transcribe'
+    | '/api/public/remote'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -132,6 +144,7 @@ export interface RootRouteChildren {
   TrayMenuRoute: typeof TrayMenuRoute
   ApiChatRoute: typeof ApiChatRoute
   ApiTranscribeRoute: typeof ApiTranscribeRoute
+  ApiPublicRemoteRoute: typeof ApiPublicRemoteRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -192,6 +205,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiTranscribeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/remote': {
+      id: '/api/public/remote'
+      path: '/api/public/remote'
+      fullPath: '/api/public/remote'
+      preLoaderRoute: typeof ApiPublicRemoteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -204,6 +224,7 @@ const rootRouteChildren: RootRouteChildren = {
   TrayMenuRoute: TrayMenuRoute,
   ApiChatRoute: ApiChatRoute,
   ApiTranscribeRoute: ApiTranscribeRoute,
+  ApiPublicRemoteRoute: ApiPublicRemoteRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

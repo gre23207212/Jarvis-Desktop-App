@@ -1,14 +1,17 @@
 import { useEffect, useRef, useState } from "react";
-import { useServerFn } from "@tanstack/react-start";
 import { Mic, Send, Square, Unplug, Monitor } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { remoteRequest } from "@/lib/remote.functions";
 import type { RemoteResult } from "@/lib/remote-schema";
 import { pairingCode } from "@/lib/remote-schema";
 import reactor from "@/assets/jarvis-reactor.png.asset.json";
 
+const API = "https://pocket-jarvis-desktop-mate.lovable.app/api/public/remote";
+const request = async ({ data }: { data: unknown }): Promise<RemoteResult> => {
+  const response = await fetch(API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+  return response.json();
+};
+
 export function PhoneRemote() {
-  const request = useServerFn(remoteRequest);
   const [token, setToken] = useState("");
   const [pairing, setPairing] = useState("");
   const [state, setState] = useState<RemoteResult>({});
@@ -39,7 +42,7 @@ export function PhoneRemote() {
     };
     void refresh();
     return () => { stopped = true; clearTimeout(timer); };
-  }, [token, request]);
+  }, [token]);
   const send = async () => {
     setBusy(true); setNotice("");
     try {
