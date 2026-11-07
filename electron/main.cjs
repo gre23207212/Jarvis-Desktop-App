@@ -431,6 +431,28 @@ for ($i = 0; $i -lt 12; $i++) {
 });
 
 // Jarvis's own voice rendered to a WAV so it can be played into any output (e.g. VB-Cable).
+// End-user credentials stay on their PC; never use the publisher's account or log keys.
+ipcMain.handle("eleven-voices", async (_e, key) => {
+  try {
+    if (typeof key !== "string" || !key) return { error: "Add your ElevenLabs key first." };
+    const response = await fetch("https://api.elevenlabs.io/v1/voices", { headers: { "xi-api-key": key }, signal: AbortSignal.timeout(15000) });
+    if (!response.ok) return { error: `ElevenLabs ${response.status}: ${await response.text()}` };
+    const data = await response.json();
+    return { voices: (data.voices || []).map((voice) => ({ id: voice.voice_id, name: voice.name, custom: voice.category !== "premade" })) };
+  } catch { return { error: "Couldn't reach ElevenLabs." }; }
+});
+ipcMain.handle("eleven-speech", async (_e, request) => {
+  try {
+    const { text, key, voiceId, model } = request || {};
+    if (typeof text !== "string" || !text || text.length > 5000 || typeof key !== "string" || !key || typeof voiceId !== "string" || !voiceId) return { error: "Check your ElevenLabs voice settings." };
+    const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voiceId)}?output_format=mp3_44100_128`, {
+      method: "POST", headers: { "xi-api-key": key, "Content-Type": "application/json" },
+      body: JSON.stringify({ text, model_id: model || "eleven_flash_v2_5" }), signal: AbortSignal.timeout(15000),
+    });
+    if (!response.ok) return { error: `ElevenLabs ${response.status}: ${await response.text()}` };
+    return { audio: Buffer.from(await response.arrayBuffer()).toString("base64") };
+  } catch { return { error: "Couldn't reach ElevenLabs. Using your system voice." }; }
+});
 // Uses the same Windows voice the mate speaks with (e.g. "Microsoft George"), falling back to any male English voice.
 ipcMain.handle("voice-wav", async (_e, text, voiceName) => {
   if (!IS_WIN) return { error: "Windows only" };
@@ -527,8 +549,8 @@ ipcMain.handle("cable-mic", async (_e, on, opts = {}) => {
 if (-not $mic) { 'nocable'; exit }
 $pm = @(0,1,2 | ForEach-Object { [JAudio]::Default(1, $_) }) -join '|'
 $ps = @(0,1,2 | ForEach-Object { [JAudio]::Default(0, $_) }) -join '|'
-0,1,2 | ForEach-Object { [JAudio]::Set($mic, $_); if ($spk) { [JAudio]::Set($spk, $_) } }
-"ok:$pm;$ps"`, { JCO: opts.cableOut || "CABLE Output", JCI: opts.cableIn || "CABLE Input" });
+0,1,2 | ForEach-Object { [JAudio]::Set($mic, $_); if ($spk -and $env:JKEEP -ne 'yes') { [JAudio]::Set($spk, $_) } }
+"ok:$pm;$ps"`, { JCO: opts.cableOut || "CABLE Output", JCI: opts.cableIn || "CABLE Input", JKEEP: opts.preserveOutput ? "yes" : "no" });
     if (r.includes("nocable")) return { error: "VB-Cable isn't installed" };
     const m = r.match(/ok:(.*)$/m);
     if (!m) return { error: "Couldn't switch audio devices" };

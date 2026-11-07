@@ -1,4 +1,5 @@
 # Jarvis roadmap
+- [ ] Use the selected voice for Discord and local monitoring, keep automatic system fallback, and package the updated Windows desktop ZIP.
 - [x] Add /pairing and a pairing-only Vercel deployment configuration; document import settings and verify local pairing/command flow and restricted forwarding rules.
 - [ ] Deploy and verify the live Vercel forwarding site; blocked on the user's Vercel project/account access and chosen available project name.
 - [x] Replace private-link pairing with a phone entry page and an expiring, single-use code displayed on the PC. Verified real pairing, invalid/reused-code rejection, command delivery/results and mobile layout with a simulated desktop; actual Discord playback remains unverified.

@@ -11,6 +11,7 @@ import { deliverDiscordMessage } from "@/lib/discord-relay";
 import { ASK_GAME, findGame } from "@/lib/game-detect";
 import { useRemoteDesktop } from "@/hooks/use-remote-desktop";
 import { elevenSpeech } from "@/lib/elevenlabs";
+import { findAudioOutput, selectedVoiceAudio } from "@/lib/voice-audio";
 import type { DiscordServer } from "@/lib/jarvis";
 import { asksQuestion, bridge, liveContext, loadSettings, parseAction, parseWake, personaPrompt, relayLines, saveSettings, sentiment, SIZES, SYSTEM_PROMPT, type Action, type Bridge, type Settings } from "@/lib/jarvis";
 
@@ -51,6 +52,14 @@ function Mate() {
   const hideTimer = useRef<number>(0);
   const hoverTimer = useRef<number>(0);
   const drag = useRef<{ x: number; y: number; moved: boolean } | null>(null);
+  const activeAudio = useRef<HTMLAudioElement[]>([]);
+  const speechGeneration = useRef(0);
+  const stopSpeech = () => {
+    speechGeneration.current += 1;
+    activeAudio.current.forEach((audio) => { audio.pause(); audio.dispatchEvent(new Event("error")); });
+    activeAudio.current = [];
+    speechSynthesis.cancel();
+  };
   modeRef.current = mode;
   settingsRef.current = settings;
   useRemoteDesktop(async (job) => {
@@ -117,6 +126,8 @@ function Mate() {
 
   // ---------- voice out ----------
   const speak = (text: string, then?: () => void) => {
+    stopSpeech();
+    const generation = speechGeneration.current;
     const s = settingsRef.current;
     if (!s?.voiceOn) { setM("idle"); then?.(); return; }
     const finish = () => { setM("idle"); if (then) { then(); return; } hideTimer.current = window.setTimeout(() => { if (modeRef.current === "idle") { setReply(""); setYou(""); } }, 8000); };
@@ -124,19 +135,22 @@ function Mate() {
       setM("speaking"); setMood(text);
       speechSynthesis.cancel();
       elevenSpeech(text, s.elevenKey, s.elevenVoice, s.elevenModel).then((blob) => {
+        if (generation !== speechGeneration.current) return;
         const url = URL.createObjectURL(blob);
         const a = new Audio(url);
+        activeAudio.current = [a];
         a.volume = s.volume ?? 1;
-        a.onended = () => { URL.revokeObjectURL(url); finish(); };
-        a.onerror = () => { URL.revokeObjectURL(url); systemSpeak(text, then); };
+        a.onended = () => { URL.revokeObjectURL(url); activeAudio.current = []; if (generation === speechGeneration.current) finish(); };
+        a.onerror = () => { URL.revokeObjectURL(url); activeAudio.current = []; if (generation === speechGeneration.current) systemSpeak(text, then); };
         return a.play();
-      }).catch(() => systemSpeak(text, then)); // out of credits / bad key / offline -> default voice
+      }).catch(() => { if (generation === speechGeneration.current) systemSpeak(text, then); }); // out of credits / bad key / offline -> default voice
       return;
     }
     systemSpeak(text, then);
   };
   const systemSpeak = (text: string, then?: () => void) => {
-    const s = settingsRef.current!;
+    const s = settingsRef.current;
+    if (!s) { setM("idle"); then?.(); return; }
     if (!("speechSynthesis" in window)) { setM("idle"); then?.(); return; }
     const u = new SpeechSynthesisUtterance(text);
     const v = speechSynthesis.getVoices();
@@ -326,45 +340,59 @@ function Mate() {
     setReply(said); speak(said);
   };
 
-  const sayIntoCable = async (text: string, cableOnly = false) => {
+  const sayIntoCable = async (text: string) => {
     const b = bridge();
-    const devs = await navigator.mediaDevices.enumerateDevices();
-    const cable = devs.find((d) => d.kind === "audiooutput" && /cable input/i.test(d.label));
-    if (!cable) return false;
-    // Same voice Jarvis normally speaks with, not a different Windows voice.
-    const voices = "speechSynthesis" in window ? speechSynthesis.getVoices() : [];
     const s = settingsRef.current;
-    const voice = voices.find((x) => x.name === s?.voiceName) || voices.find((x) => /en-GB/i.test(x.lang) && /daniel|george|ryan|thomas|male/i.test(x.name)) || voices.find((x) => /en-GB/i.test(x.lang));
-    const r = await b?.voiceWav?.(text, voice?.name);
-    if (!r?.wav) return false;
-    const src = `data:audio/wav;base64,${r.wav}`;
+    if (!s) return false;
+    stopSpeech();
+    const generation = speechGeneration.current;
+    const devs = await navigator.mediaDevices.enumerateDevices();
+    const cable = s.cableIn ? findAudioOutput(devs, s.cableIn) : devs.find((d) => d.kind === "audiooutput" && !["default", "communications"].includes(d.deviceId) && /cable input/i.test(d.label));
+    if (!cable) return false;
+    const voices = "speechSynthesis" in window ? speechSynthesis.getVoices() : [];
+    const voice = voices.find((x) => x.name === s.voiceName) || voices.find((x) => /en-GB/i.test(x.lang) && /daniel|george|ryan|thomas|male/i.test(x.name)) || voices.find((x) => /en-GB/i.test(x.lang));
+    setM("speaking");
+    const blob = await selectedVoiceAudio(text, s, elevenSpeech, async () => {
+      const r = await b?.voiceWav?.(text, voice?.name);
+      return r?.wav ? (await fetch(`data:audio/wav;base64,${r.wav}`)).blob() : null;
+    });
+    if (!blob || generation !== speechGeneration.current) { setM("idle"); return false; }
+    const src = URL.createObjectURL(blob);
     const toCall = new Audio(src) as HTMLAudioElement & { setSinkId?: (id: string) => Promise<void> };
-    await toCall.setSinkId?.(cable.deviceId);
-    toCall.volume = s?.volume ?? 1;
-    // Point Windows' default mic at VB-Cable so Discord (on "Default") hears Jarvis, then switch it back after.
-    const audio = { cableIn: s?.cableIn ?? "", cableOut: s?.cableOut ?? "", defaultIn: s?.audioIn ?? "", defaultOut: s?.audioOut ?? "" };
-    const swapped = (await b?.cableMic?.(true, audio).catch(() => null))?.ok;
+    const local = new Audio(src) as HTMLAudioElement & { setSinkId?: (id: string) => Promise<void> };
+    const audio = { cableIn: s.cableIn, cableOut: s.cableOut, defaultIn: s.audioIn, defaultOut: s.audioOut, preserveOutput: true };
+    let swapped = false;
     try {
-      if (swapped) await new Promise((res) => setTimeout(res, 900));
+      // Route only call speech into the cable; leave speakers/Discord output alone.
+      if (!toCall.setSinkId) return false;
+      await toCall.setSinkId(cable.deviceId);
+      const localOutput = s.audioOut ? findAudioOutput(devs, s.audioOut) : undefined;
+      if (localOutput?.deviceId === cable.deviceId || (s.audioOut && !localOutput)) return false;
+      await local.setSinkId?.(localOutput?.deviceId ?? "default");
+      toCall.volume = local.volume = s.volume;
+      toCall.playbackRate = local.playbackRate = s.voiceEngine === "system" ? s.rate : 1;
+      swapped = !!(await b?.cableMic?.(true, audio))?.ok;
+      if (!swapped) return false;
+      await new Promise((res) => setTimeout(res, 900));
+      if (generation !== speechGeneration.current) return false;
       const completed = new Promise<boolean>((resolve) => {
         const timer = window.setTimeout(() => { toCall.pause(); resolve(false); }, 60000);
         toCall.onended = () => { window.clearTimeout(timer); resolve(true); };
         toCall.onerror = () => { window.clearTimeout(timer); resolve(false); };
       });
-      setM("speaking");
+      activeAudio.current = [toCall, local];
       try { await toCall.play(); } catch { toCall.dispatchEvent(new Event("error")); return false; }
-      if (!cableOnly) {
-        const local = new Audio(src); // so you hear it too
-        local.volume = toCall.volume;
-        await local.play().catch(() => {});
-      }
+      await local.play().catch(() => {});
       if (!(await completed)) return false;
       await new Promise((res) => setTimeout(res, 400));
-    } finally {
+      return true;
+    } catch { return false; }
+    finally {
+      toCall.pause(); local.pause(); activeAudio.current = [];
+      URL.revokeObjectURL(src);
       if (swapped) await b?.cableMic?.(false, audio).catch(() => null);
       setM("idle");
     }
-    return true;
   };
 
   // Hear the call: record what Windows plays (your friends in Discord) for a short window, then transcribe it.
@@ -522,7 +550,7 @@ function Mate() {
 
   const listenTimer = useRef<number>(0);
   const listenNow = (prompt = "Listening, sir…") => {
-    speechSynthesis.cancel();
+    stopSpeech();
     startMic();
     want.current = "command";
     setM("listening");
@@ -537,7 +565,7 @@ function Mate() {
   };
 
   const onLogoClick = () => {
-    if (mode === "speaking") { speechSynthesis.cancel(); setM("idle"); return; }
+    if (mode === "speaking") { stopSpeech(); setM("idle"); return; }
     if (mode === "listening") { endListen(); setReply(""); return; }
     if (mode === "idle") listenNow();
   };

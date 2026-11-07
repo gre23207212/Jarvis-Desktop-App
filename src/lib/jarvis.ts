@@ -104,8 +104,10 @@ export type Bridge = {
   discordJoin?: (link: string) => Promise<{ ok?: boolean; joined?: boolean; error?: string }>;
   discordMute?: () => Promise<{ ok?: boolean; error?: string }>;
   voiceWav?: (text: string, voiceName?: string) => Promise<{ wav?: string; error?: string }>;
+  elevenVoices?: (key: string) => Promise<{ voices?: { id: string; name: string; custom: boolean }[]; error?: string }>;
+  elevenSpeech?: (request: { text: string; key: string; voiceId: string; model: string }) => Promise<{ audio?: string; error?: string }>;
   /** true: make VB-Cable the Windows default microphone (Discord on "Default" hears Jarvis). false: put your normal mic back. */
-  cableMic?: (on: boolean, opts?: { cableIn?: string; cableOut?: string; defaultIn?: string; defaultOut?: string }) => Promise<{ ok?: boolean; error?: string }>;
+  cableMic?: (on: boolean, opts?: { cableIn?: string; cableOut?: string; defaultIn?: string; defaultOut?: string; preserveOutput?: boolean }) => Promise<{ ok?: boolean; error?: string }>;
   audioDevices?: () => Promise<{ inputs: string[]; outputs: string[] }>;
   openUrl?: (url: string) => void;
 };

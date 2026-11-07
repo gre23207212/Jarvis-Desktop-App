@@ -23,6 +23,8 @@ contextBridge.exposeInMainWorld("jarvis", {
   cableMic: (on, opts) => ipcRenderer.invoke("cable-mic", on, opts),
   audioDevices: () => ipcRenderer.invoke("audio-devices"),
   voiceWav: (text, voiceName) => ipcRenderer.invoke("voice-wav", text, voiceName),
+  elevenVoices: (key) => ipcRenderer.invoke("eleven-voices", key),
+  elevenSpeech: (req) => ipcRenderer.invoke("eleven-speech", req),
   openUrl: (url) => ipcRenderer.send("open-url", url),
   onCmd,
 });
