@@ -51,14 +51,14 @@ function HudSelect<T extends string>({ value, options, onChange, label }: { valu
   }, []);
   const cur = options.find((o) => o.value === value) ?? options[0];
   return (
-    <div ref={ref} className="relative w-full">
+    <div ref={ref} className={`relative w-full ${open ? "z-50" : ""}`}>
       <button type="button" aria-label={label} aria-expanded={open} onClick={() => setOpen(!open)}
         className={`flex w-full items-center justify-between border bg-term-bg px-2 py-1.5 font-mono text-xs text-term-text ${open ? "border-primary shadow-[0_0_10px_var(--color-primary)]" : "border-primary/40 hover:border-primary"}`}>
         <span className="truncate">{cur?.label}</span>
         <ChevronDown size={14} className={`shrink-0 text-primary transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
       {open && (
-        <ul role="listbox" className="absolute z-20 mt-1 max-h-52 w-full overflow-y-auto border border-primary bg-term-bg shadow-[0_0_14px_var(--color-primary)]">
+        <ul role="listbox" className="absolute z-50 mt-1 max-h-52 w-full overflow-y-auto border border-primary bg-background shadow-[0_0_14px_var(--color-primary)]">
           {options.map((o) => (
             <li key={o.value}>
               <button type="button" role="option" aria-selected={o.value === value} onClick={() => { onChange(o.value); setOpen(false); }}
@@ -105,7 +105,25 @@ function Mainframe() {
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [mics, setMics] = useState<MediaDeviceInfo[]>([]);
   const [devs, setDevs] = useState<{ inputs: string[]; outputs: string[] }>({ inputs: [], outputs: [] });
-  useEffect(() => { bridge()?.audioDevices?.().then(setDevs).catch(() => {}); }, []);
+  useEffect(() => {
+    const merge = (a: string[], b: string[]) => Array.from(new Set([...a, ...b].filter(Boolean)));
+    const clean = (l: string) => l.replace(/^(Default|Communications) - /, "").replace(/\s*\([0-9a-f]{4}:[0-9a-f]{4}\)$/i, "");
+    (async () => {
+      let ins: string[] = [], outs: string[] = [];
+      try {
+        const d = await navigator.mediaDevices?.enumerateDevices();
+        if (d?.length) {
+          ins = d.filter((x) => x.kind === "audioinput" && x.label).map((x) => clean(x.label));
+          outs = d.filter((x) => x.kind === "audiooutput" && x.label).map((x) => clean(x.label));
+        }
+      } catch { /* ignore */ }
+      try {
+        const n = await bridge()?.audioDevices?.();
+        if (n) { ins = merge(n.inputs, ins); outs = merge(n.outputs, outs); }
+      } catch { /* ignore */ }
+      setDevs({ inputs: merge(ins, []), outputs: merge(outs, []) });
+    })();
+  }, []);
   const [status, setStatus] = useState("");
   const [local, setLocal] = useState<{ running: boolean; hasModel: boolean } | null>(null);
   const [dl, setDl] = useState<{ text: string; pct: number | null } | null>(null);
