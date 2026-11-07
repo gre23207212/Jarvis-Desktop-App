@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseWake } from "./jarvis";
+import { asksQuestion, parseWake } from "./jarvis";
 
 describe("parseWake", () => {
   it("activates on 'Hey Jarvis' and keeps the request", () => {
@@ -58,6 +58,16 @@ describe("discord casual phrasing", () => {
     const { parseAction } = await import("./jarvis");
     expect(parseAction("Hop in voice chat and tell my friend that I will be a sec")).toEqual({ kind: "discord", message: "I will be a sec", server: undefined });
     expect(parseAction("hop in voice and tell my friend ill be a sec")).toMatchObject({ kind: "discord", message: "ill be a sec" });
+  });
+});
+
+describe("asksQuestion", () => {
+  it("listens after a question", () => {
+    expect(asksQuestion("Which game shall I open, sir?")).toBe(true);
+    expect(asksQuestion("Would you like me to join the Lounge.")).toBe(true);
+  });
+  it("does not listen after a statement", () => {
+    expect(asksQuestion("Opening Spotify, sir.")).toBe(false);
   });
 });
 

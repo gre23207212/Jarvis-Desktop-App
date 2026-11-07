@@ -10,7 +10,7 @@ import { selectDiscordChannel } from "@/lib/discord-selection";
 import { deliverDiscordMessage } from "@/lib/discord-relay";
 import { useRemoteDesktop } from "@/hooks/use-remote-desktop";
 import type { DiscordServer } from "@/lib/jarvis";
-import { bridge, liveContext, loadSettings, parseAction, parseWake, personaPrompt, relayLines, saveSettings, sentiment, SIZES, SYSTEM_PROMPT, type Action, type Settings } from "@/lib/jarvis";
+import { asksQuestion, bridge, liveContext, loadSettings, parseAction, parseWake, personaPrompt, relayLines, saveSettings, sentiment, SIZES, SYSTEM_PROMPT, type Action, type Settings } from "@/lib/jarvis";
 
 export const Route = createFileRoute("/mate")({
   head: () => ({
@@ -271,7 +271,10 @@ function Mate() {
       }
       history.current.push({ role: "assistant", content: full });
       saveConversation(history.current);
-      speak(full);
+      // If Jarvis asked something, open the mic for the answer straight away.
+      speak(full, asksQuestion(full) ? () => {
+        window.setTimeout(() => { if (modeRef.current === "idle" && want.current === "none") listenNow("Your answer, sir…"); else if (modeRef.current === "idle") listenNow("Your answer, sir…"); }, 350);
+      } : undefined);
     } catch (e) {
       setReply(e instanceof Error ? e.message : "Systems malfunction, sir.");
       setM("idle");
