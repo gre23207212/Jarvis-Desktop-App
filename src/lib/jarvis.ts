@@ -127,11 +127,11 @@ export function parseAction(text: string): Action | null {
   const s = text.trim().replace(/[.!?]+$/, "");
   const polite = "(?:(?:can|could|would) you |please |jarvis,? )*";
   let m: RegExpMatchArray | null;
-  const vc = /\b(?:join|hop|jump|get|go)\b(?:\s+(?:in|into|on|onto))?.*?\b(?:discord|vc|voice chat|voice channel|call)\b/i;
-  if (vc.test(s) && /\b(?:discord|vc|voice)\b/i.test(s)) {
+  const vc = /\b(?:join|hop|jump|get|go)\b(?:\s+(?:in|into|on|onto))?.*?\b(?:discord|vc|voice|call)\b/i;
+  if (vc.test(s) && /\b(?:discord|vc|voice|call)\b/i.test(s)) {
     const sm = s.match(/\b(?:on|in)\s+(?:the\s+|my\s+)?([\w'-]+(?:\s[\w'-]+){0,2})\s+server\b/i);
     const server = sm?.[1] && !/^(?:a|the|my)$/i.test(sm[1]) && !/^(?:discord|vc)$/i.test(sm[1]) ? sm[1].trim() : undefined;
-    m = s.match(/\b(?:tell|say|let)\b(?:\s+(?:them|everyone|the call|the guys|my friends|my mates|the boys))?(?:\s+know)?(?:\s+that)?\s+(.+)$/i);
+    m = s.match(/\b(?:tell|say|let)\b(?:\s+(?:them|everyone|the call|the guys|the boys|(?:my|the)\s+(?:friends?|mates?|pals?|buddies|buddy|squad|team)))?(?:\s+know)?(?:\s+that)?\s+(.+)$/i);
     let message = (m?.[1] ?? "").trim();
     if (server) message = message.replace(new RegExp(`\\s+(?:on|in)\\s+(?:the\\s+|my\\s+)?${server.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s+server\\b.*$`, "i"), "").trim();
     return { kind: "discord", message, server };

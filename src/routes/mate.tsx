@@ -92,7 +92,6 @@ function Mate() {
     u.volume = s.volume ?? 1;
     u.rate = s.rate ?? 1;
     setMood(text);
-    if (s.voiceToCable) void sayIntoCable(text, true);
     u.onstart = () => setM("speaking");
     u.onend = u.onerror = () => { setM("idle"); if (then) { then(); return; } hideTimer.current = window.setTimeout(() => { if (modeRef.current === "idle") { setReply(""); setYou(""); } }, 8000); };
     speechSynthesis.cancel();

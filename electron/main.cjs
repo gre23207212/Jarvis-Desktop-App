@@ -362,6 +362,21 @@ ipcMain.handle("discord-join", async (_e, link) => {
   const m = String(link || "").match(/channels\/(\d+|@me)\/(\d+)/);
   if (!m) return { error: "Bad Discord link" };
   await shell.openExternal(`discord://-/channels/${m[1]}/${m[2]}`).catch(() => {});
+  if (!IS_WIN) return { ok: true };
+  // Discord stops on a "Join Voice" preview; bring it forward and click that button (centre of the chat area).
+  await ps(`Add-Type 'using System;using System.Runtime.InteropServices;public struct R{public int L,T,Ri,B;}public class D{[DllImport("user32.dll")]public static extern bool SetForegroundWindow(IntPtr h);[DllImport("user32.dll")]public static extern bool ShowWindow(IntPtr h,int c);[DllImport("user32.dll")]public static extern bool GetWindowRect(IntPtr h,out R r);[DllImport("user32.dll")]public static extern bool SetCursorPos(int x,int y);[DllImport("user32.dll")]public static extern void mouse_event(int f,int x,int y,int d,int e);}'
+Start-Sleep -Milliseconds 2500
+$p = Get-Process Discord -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1
+if (-not $p) { 'nodiscord'; exit }
+[D]::ShowWindow($p.MainWindowHandle, 3) | Out-Null
+[D]::SetForegroundWindow($p.MainWindowHandle) | Out-Null
+Start-Sleep -Milliseconds 900
+$r = New-Object R; [D]::GetWindowRect($p.MainWindowHandle, [ref]$r) | Out-Null
+$w = $r.Ri - $r.L; $h = $r.B - $r.T
+$x = $r.L + [int](($w * 0.176 + $w) / 2); $y = $r.T + [int]($h * 0.563)
+[D]::SetCursorPos($x, $y) | Out-Null
+[D]::mouse_event(2,0,0,0,0); Start-Sleep -Milliseconds 60; [D]::mouse_event(4,0,0,0,0)
+'ok'`).catch(() => {});
   return { ok: true };
 });
 

@@ -52,3 +52,11 @@ describe("discord voice chat + creator", () => {
   });
   it("knows Vraith made him", () => { expect(SP2).toMatch(/Vraith/); });
 });
+
+describe("discord casual phrasing", () => {
+  it("joins voice for 'hop in voice chat and tell my friend that I will be a sec'", async () => {
+    const { parseAction } = await import("./jarvis");
+    expect(parseAction("Hop in voice chat and tell my friend that I will be a sec")).toEqual({ kind: "discord", message: "I will be a sec", server: undefined });
+    expect(parseAction("hop in voice and tell my friend ill be a sec")).toMatchObject({ kind: "discord", message: "ill be a sec" });
+  });
+});

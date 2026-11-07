@@ -274,7 +274,6 @@ function Mainframe() {
                 <HudSelect label="Microphone" value={s.micId} onChange={(v) => set({ micId: v })}
                   options={[{ value: "", label: "Mic: Windows default" }, ...mics.filter((x) => x.deviceId !== "default").map((x) => ({ value: x.deviceId, label: x.label || "Microphone" }))]} />
                 <Toggle on={s.wakeWord} onChange={(v) => set({ wakeWord: v })} label={'LISTEN FOR "HEY JARVIS"'} />
-                <Toggle on={s.voiceToCable} onChange={(v) => set({ voiceToCable: v })} label="ALSO SPEAK INTO VB-CABLE" note={cable ? "Found" : "Not installed"} />
               </div>
             </Section>
 
