@@ -3,6 +3,7 @@
   "private": true,
   "sideEffects": false,
   "type": "module",
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
@@ -11,7 +12,8 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "dist": "vite build && electron-packager . Jarvis --platform=win32 --arch=x64 --out=electron-release --overwrite --icon=electron/icon.ico --ignore='node_modules' --ignore='^/src' --ignore='^/public' --ignore='^/electron-release' --ignore='^/supabase' --ignore='^/drizzle'"
   },
   "overrides": {
     "rolldown": "1.2.1"
@@ -73,7 +75,9 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@electron/packager": "^18.3.6",
     "@eslint/js": "^9.32.0",
+    "electron": "^33.4.11",
     "@lovable.dev/vite-tanstack-config": "2.26.5",
     "@testing-library/jest-dom": "^6.6.0",
     "@testing-library/react": "^16.0.0",
