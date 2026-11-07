@@ -50,7 +50,7 @@ ipcMain.handle("setup-run", async (e, mode, opts = {}) => {
       await fs.promises.rm(INSTALL_DIR, { recursive: true, force: true }).catch(() => {});
       await fs.promises.cp(SRC_DIR, INSTALL_DIR, { recursive: true, force: true });
       step("Creating shortcuts…", 0.75);
-      const icon = path.join(INSTALL_DIR, path.relative(SRC_DIR, path.join(__dirname, "icon.ico")));
+      const icon = INSTALLED_EXE; // the exe carries the Jarvis icon
       const link = { target: INSTALLED_EXE, cwd: INSTALL_DIR, icon, iconIndex: 0, appUserModelId: "Jarvis.DesktopMate", description: "Jarvis Desktop Mate" };
       const sc = shortcutPaths();
       fs.mkdirSync(path.dirname(sc.start), { recursive: true });
