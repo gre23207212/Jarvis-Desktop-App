@@ -1,4 +1,6 @@
 # Jarvis roadmap
+- [x] Add /pairing and a pairing-only Vercel deployment configuration; document import settings and verify local pairing/command flow and restricted forwarding rules.
+- [ ] Deploy and verify the live Vercel forwarding site; blocked on the user's Vercel project/account access and chosen available project name.
 - [x] Replace private-link pairing with a phone entry page and an expiring, single-use code displayed on the PC. Verified real pairing, invalid/reused-code rejection, command delivery/results and mobile layout with a simulated desktop; actual Discord playback remains unverified.
 - [x] Explain phone control and add launch welcome, local date/time, opt-in public news, remembered topic and friendly closing. Browser flow verified with real public headlines and simulated desktop/speech; Windows launch and audible microphone interaction remain unverified.
 - [x] Remove visible platform branding without breaking hosting

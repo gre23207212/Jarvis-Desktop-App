@@ -29,7 +29,9 @@ Call messages use they/them for the user. After successful message playback, Jar
 
 ## Phone remote
 
-Publish the latest app and use the updated desktop shell. On your PC, open Mainframe → Skills → Phone Remote → Pair phone. Jarvis displays a 12-character code and the phone page address. Open https://pocket-jarvis-desktop-mate.lovable.app/remote on your phone, enter that code, and press Link PC. The code expires after ten minutes and works once. Keep it private. Disconnect in Mainframe to revoke phone access; generating a new code also disconnects the old pairing. The phone remembers its connection until you forget it or disconnect it on the PC.
+Publish the latest app and use the updated desktop shell. On your PC, open Mainframe → Skills → Phone Remote → Pair phone. Jarvis displays a 12-character code and the phone page address. Open https://pocket-jarvis-desktop-mate.lovable.app/pairing on your phone, enter that code, and press Link PC. The code expires after ten minutes and works once. Keep it private. Disconnect in Mainframe to revoke phone access; generating a new code also disconnects the old pairing. The phone remembers its connection until you forget it or disconnect it on the PC.
+
+For a separate phone-only `YOUR-PROJECT.vercel.app/pairing` address, import this repository into Vercel with Root Directory `vercel-pairing`, framework Other, no build or install command, and Output Directory `public`. See `vercel-pairing/README.md`. This keeps desktop pages on the existing hosted app and forwards only the phone experience; publish the latest Jarvis pages first.
 
 Leave the PC awake, online, and running Jarvis. On the phone, select a saved voice channel and type a command or press Speak, then Stop to transcribe it. Review the text and press Send to PC. Phone recording requires microphone permission and internet access; transcription uses AI credits. The phone displays PC status and command results. The remote does not wake a sleeping PC and only accepts Discord voice commands.
 

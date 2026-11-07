@@ -29,6 +29,7 @@ use the editor.
 - **Secrets.** Lovable manages them. Do not put secret values in the repo.
 <!-- LOVABLE:END -->
 - Desktop shell (electron/) loads published /mate, /tray-menu, /mainframe pages; settings live in browser storage shared across those windows, and local/custom AI calls go through the main process to avoid browser restrictions.
+- The separate vercel-pairing deployment forwards only the phone screen and required assets/RPC/transcription to the published app; it does not deploy desktop pages or replace the hosted backend.
 - Both chat surfaces use the shared browser-storage memory module for explicit saved facts and recent conversation; this keeps desktop windows consistent without cloud account requirements.
 - Startup news topics are saved as manageable user memory; desktop launches offer opt-in headlines from dated public RSS via a bounded server function, never invented news.
 - Resolve Discord channel names through the shared selection module and keep pending relay actions in the companion until a unique channel is selected; this prevents accidental joins and preserves follow-up intent.

@@ -25,7 +25,7 @@ export function PhonePairing() {
       storeRemoteToken(token);
       setCode(result.pairingCode.match(/.{1,4}/g)?.join("-") ?? result.pairingCode);
       setExpiresAt(result.expiresAt ?? "");
-      setLink(`${window.location.origin}/remote`);
+      setLink(`${window.location.origin}/pairing`);
       setStatus("Code ready. Keep it private.");
     } catch (error) { setStatus(error instanceof Error ? error.message : "Pairing failed."); }
     finally { setBusy(false); }
