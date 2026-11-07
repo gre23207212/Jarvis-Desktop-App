@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { AudioLines, Pencil } from "lucide-react";
 import reactor from "@/assets/jarvis-reactor.png.asset.json";
 import { loadMemory, memoryCommand, memoryContext, saveConversation } from "@/lib/memory";
-import { bridge, liveContext, loadSettings, parseAction, parseWake, saveSettings, SIZES, SYSTEM_PROMPT, type Action, type Settings } from "@/lib/jarvis";
+import { bridge, liveContext, loadSettings, parseAction, parseWake, personaPrompt, saveSettings, sentiment, SIZES, SYSTEM_PROMPT, type Action, type Settings } from "@/lib/jarvis";
 
 export const Route = createFileRoute("/mate")({
   head: () => ({
@@ -41,7 +41,8 @@ function Mate() {
   modeRef.current = mode;
   settingsRef.current = settings;
 
-  const setM = (m: Mode) => { modeRef.current = m; setMode(m); };
+  const setM = (m: Mode) => { modeRef.current = m; setMode(m); try { localStorage.setItem("jarvis-status", JSON.stringify({ mode: m, at: Date.now() })); } catch { /* ignore */ } };
+  const setMood = (text: string) => { try { localStorage.setItem("jarvis-mood", JSON.stringify({ mood: sentiment(text), text: text.slice(0, 140), at: Date.now() })); } catch { /* ignore */ } };
 
   // ---------- setup ----------
   useEffect(() => {
@@ -68,6 +69,7 @@ function Mate() {
       if (name === "talk") listenNow();
       if (name === "type") { setTyping(true); b?.setIgnore(false); }
     });
+    if (!s.alwaysOnTop) b?.cmd("always-on-top", false);
     startMic();
     return () => { window.removeEventListener("storage", onStorage); window.removeEventListener("mousemove", onMove); off?.(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -87,6 +89,10 @@ function Mate() {
     const v = speechSynthesis.getVoices();
     u.voice = v.find((x) => x.name === s.voiceName) || v.find((x) => /en-GB/i.test(x.lang) && /daniel|george|ryan|thomas|male/i.test(x.name)) || v.find((x) => /en-GB/i.test(x.lang)) || null;
     u.pitch = 0.9;
+    u.volume = s.volume ?? 1;
+    u.rate = s.rate ?? 1;
+    setMood(text);
+    if (s.voiceToCable) void sayIntoCable(text, true);
     u.onstart = () => setM("speaking");
     u.onend = u.onerror = () => { setM("idle"); if (then) { then(); return; } hideTimer.current = window.setTimeout(() => { if (modeRef.current === "idle") { setReply(""); setYou(""); } }, 8000); };
     speechSynthesis.cancel();
@@ -117,12 +123,13 @@ function Mate() {
     }
     try {
       const context = [await liveContext(t, history.current), memoryContext()].filter(Boolean).join("\n\n");
-      const system = `${SYSTEM_PROMPT}\n\n${context}`;
+      const persona = personaPrompt(s);
+      const system = `${SYSTEM_PROMPT}\n${persona}\n\n${context}`;
       const cloud = async (provider: "builtin" | "chatgpt") => {
         const res = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ messages: history.current, provider, context }),
+          body: JSON.stringify({ messages: history.current, provider, context: [persona, context].filter(Boolean).join("\n\n") }),
         });
         if (!res.ok || !res.body) throw new Error((await res.json().catch(() => ({}))).error || "Systems malfunction, sir.");
         const reader = res.body.getReader();
@@ -172,7 +179,7 @@ function Mate() {
   };
 
   // ---------- skills on the PC ----------
-  const sayIntoCable = async (text: string) => {
+  const sayIntoCable = async (text: string, cableOnly = false) => {
     const b = bridge();
     const devs = await navigator.mediaDevices.enumerateDevices();
     const cable = devs.find((d) => d.kind === "audiooutput" && /cable input/i.test(d.label));
@@ -182,6 +189,8 @@ function Mate() {
     const src = `data:audio/wav;base64,${r.wav}`;
     const toCall = new Audio(src) as HTMLAudioElement & { setSinkId?: (id: string) => Promise<void> };
     await toCall.setSinkId?.(cable.deviceId);
+    toCall.volume = settingsRef.current?.volume ?? 1;
+    if (cableOnly) { await toCall.play().catch(() => {}); return true; }
     const local = new Audio(src); // so you hear it too
     setM("speaking");
     await Promise.all([toCall.play(), local.play()]).catch(() => {});
@@ -206,13 +215,19 @@ function Mate() {
       return r.ok ? `Playing ${act.query} on Spotify, sir.` : `${r.error} sir.`;
     }
     // Discord
-    if (!s.discordLink) return "Paste your Discord call link into the Mainframe under Skills first, sir.";
-    const r = await b.discordJoin!(s.discordLink);
+    const servers = s.discordServers ?? [];
+    const want = act.server?.toLowerCase();
+    const preset = want ? servers.find((x) => x.name.toLowerCase().includes(want) || want.includes(x.name.toLowerCase())) : undefined;
+    if (want && !preset && servers.length) return `I don't have a saved channel called ${act.server}, sir. Add it in the Mainframe under Skills.`;
+    const link = preset?.link || s.discordLink || servers[0]?.link;
+    if (!link) return "Save your Discord voice channel link in the Mainframe under Skills first, sir.";
+    const r = await b.discordJoin!(link);
     if (r.error) return "That Discord link doesn't look right, sir. Copy the voice channel's link again in the Mainframe.";
     if (!act.message) return "Joining your Discord call, sir.";
     setReply("Joining your Discord call, sir…");
     await new Promise((res) => setTimeout(res, 5000));
-    const ok = await sayIntoCable(act.message);
+    const who = s.userName && s.userName.toLowerCase() !== "sir" ? s.userName : "my boss";
+    const ok = await sayIntoCable(`Message from ${who}: ${act.message}`);
     return ok ? `I've told them: "${act.message}"` : "I joined, sir, but I need VB-Cable installed to speak in the call. There's a button in the Mainframe.";
   };
 
@@ -377,14 +392,14 @@ function Mate() {
                 className={`pointer-events-none absolute inset-0 h-full w-full ${busy ? "animate-spin-fast" : "animate-spin-slow"} ${mode === "listening" || mode === "speaking" ? "animate-core-fast" : ""}`} />
             </button>
           </div>
-          <div className={`jarvis-pill mb-1 flex items-center transition-all duration-200 ${hover || typing ? "opacity-100" : "pointer-events-none -translate-y-2 opacity-0"}`}>
+          <div className={`jarvis-pill -mt-5 mb-1 flex items-center justify-center self-center transition-all duration-200 ${hover || typing ? "opacity-100" : "pointer-events-none -translate-y-1 opacity-0"}`}>
             <button aria-label="Type to Jarvis" onClick={() => { setTyping(true); setReply(""); setYou(""); }}
-              className={`px-4 py-2 hover:text-primary ${typing ? "text-primary" : ""}`}>
+              className={`px-3 py-1.5 hover:text-primary ${typing ? "text-primary" : ""}`}>
               <Pencil size={15} />
             </button>
             <span className="h-4 w-px bg-primary/40" />
             <button aria-label="Talk to Jarvis" onClick={() => (mode === "listening" ? (endListen(), setReply("")) : listenNow())}
-              className={`px-4 py-2 hover:text-primary ${mode === "listening" ? "text-primary" : ""}`}>
+              className={`px-3 py-1.5 hover:text-primary ${mode === "listening" ? "text-primary" : ""}`}>
               <AudioLines size={15} />
             </button>
           </div>

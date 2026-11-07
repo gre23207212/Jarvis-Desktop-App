@@ -44,3 +44,11 @@ describe("extractPlace", () => {
     expect(extractPlace("what's the weather like", false)).toBeNull();
   });
 });
+
+import { parseAction as pa2, SYSTEM_PROMPT as SP2 } from "./jarvis";
+describe("discord voice chat + creator", () => {
+  it("parses hop in a vc with server and message", () => {
+    expect(pa2("hop in a vc on discord on the Gaming server and tell my friends I'll be a few mins")).toEqual({ kind: "discord", server: "Gaming", message: "I'll be a few mins" });
+  });
+  it("knows Vraith made him", () => { expect(SP2).toMatch(/Vraith/); });
+});

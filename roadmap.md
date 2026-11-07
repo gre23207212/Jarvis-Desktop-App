@@ -9,3 +9,4 @@
 - [x] Custom tray popup menu (Jarvis styled) instead of plain menu
 - [x] Mainframe settings window: brain (built-in, local Gemma via Ollama, own key/model), voice
 - [x] Repackage Windows zip
+- [x] Hop in a VC on Discord and tell my friends…' → join saved channel, speak via VB-Cable

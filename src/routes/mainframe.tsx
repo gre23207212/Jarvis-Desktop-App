@@ -1,17 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState, type ReactNode } from "react";
-import { Minus, X, Trash2, Plus } from "lucide-react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Minus, X, Trash2, Plus, Check, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { clearMemory, forget, loadMemory, remember, type JarvisMemory } from "@/lib/memory";
-import { bridge, loadSettings, saveSettings, SYSTEM_PROMPT, VERSION, type Brain, type Settings } from "@/lib/jarvis";
+import { bridge, loadSettings, saveSettings, SYSTEM_PROMPT, VERSION, type Brain, type Settings, type Size } from "@/lib/jarvis";
 
 export const Route = createFileRoute("/mainframe")({
   head: () => ({
     meta: [
       { title: "Jarvis Mainframe — Settings" },
-      { name: "description", content: "Choose Jarvis's brain, voice and microphone." },
+      { name: "description", content: "Choose Jarvis's brain, voice, skills and memory." },
       { property: "og:title", content: "Jarvis Mainframe — Settings" },
-      { property: "og:description", content: "Choose Jarvis's brain, voice and microphone." },
+      { property: "og:description", content: "Choose Jarvis's brain, voice, skills and memory." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -19,18 +19,19 @@ export const Route = createFileRoute("/mainframe")({
   component: Mainframe,
 });
 
-const BRAINS: { id: Brain; label: string; note: string }[] = [
-  { id: "local", label: "LOCAL · GEMMA", note: "Free, runs on this PC" },
-  { id: "builtin", label: "BUILT-IN CLOUD", note: "Free, no setup" },
-  { id: "chatgpt", label: "CHATGPT", note: "Project's ChatGPT key" },
-  { id: "custom", label: "CUSTOM", note: "Your own API key & model" },
+const BRAINS: { value: Brain; label: string; note: string }[] = [
+  { value: "local", label: "Local · Gemma", note: "Free, runs on this PC" },
+  { value: "builtin", label: "Built-in cloud", note: "Free, no setup" },
+  { value: "chatgpt", label: "ChatGPT", note: "Project's ChatGPT key" },
+  { value: "custom", label: "Custom", note: "Your own API key & model" },
 ];
+type Tab = "mainframe" | "settings" | "skills";
 
 function Section({ title, right, children }: { title: string; right?: ReactNode; children: ReactNode }) {
   return (
-    <section className="border-t border-primary/30 px-5 py-4">
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="border-l-2 border-primary pl-2 font-hud text-sm tracking-widest text-term-text">{title}</h2>
+    <section className="border-t border-primary/30 px-4 py-3">
+      <div className="mb-2 flex items-center justify-between">
+        <h2 className="border-l-2 border-primary pl-2 font-hud text-xs tracking-widest text-term-text">{title}</h2>
         {right}
       </div>
       {children}
@@ -38,10 +39,67 @@ function Section({ title, right, children }: { title: string; right?: ReactNode;
   );
 }
 
+/** Glowing HUD dropdown that replaces native selects. */
+function HudSelect<T extends string>({ value, options, onChange, label }: { value: T; options: { value: T; label: string; note?: string }[]; onChange: (v: T) => void; label: string }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const close = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
+    window.addEventListener("mousedown", close);
+    return () => window.removeEventListener("mousedown", close);
+  }, []);
+  const cur = options.find((o) => o.value === value) ?? options[0];
+  return (
+    <div ref={ref} className="relative w-full">
+      <button type="button" aria-label={label} aria-expanded={open} onClick={() => setOpen(!open)}
+        className={`flex w-full items-center justify-between border bg-term-bg px-2 py-1.5 font-mono text-xs text-term-text ${open ? "border-primary shadow-[0_0_10px_var(--color-primary)]" : "border-primary/40 hover:border-primary"}`}>
+        <span className="truncate">{cur?.label}</span>
+        <ChevronDown size={14} className={`shrink-0 text-primary transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <ul role="listbox" className="absolute z-20 mt-1 max-h-52 w-full overflow-y-auto border border-primary bg-term-bg shadow-[0_0_14px_var(--color-primary)]">
+          {options.map((o) => (
+            <li key={o.value}>
+              <button type="button" role="option" aria-selected={o.value === value} onClick={() => { onChange(o.value); setOpen(false); }}
+                className={`flex w-full items-center gap-2 px-2 py-1.5 text-left font-mono text-xs hover:bg-primary/15 ${o.value === value ? "text-primary" : "text-term-text"}`}>
+                <span className="w-3">{o.value === value && <Check size={12} />}</span>
+                <span className="truncate">{o.label}</span>
+                {o.note && <span className="ml-auto truncate text-[10px] text-term-dim">{o.note}</span>}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function Toggle({ on, onChange, label, note }: { on: boolean; onChange: (v: boolean) => void; label: string; note?: string }) {
+  return (
+    <button type="button" onClick={() => onChange(!on)} className="flex w-full items-center gap-2 py-0.5 text-left">
+      <span className={`text-xs ${on ? "text-primary" : "text-term-dim"}`}>{on ? "◆" : "◇"}</span>
+      <span className={`font-hud text-[11px] tracking-wider ${on ? "text-primary" : "text-term-text"}`}>{label}</span>
+      {note && <span className="font-mono text-[10px] text-term-dim">{note}</span>}
+    </button>
+  );
+}
+
+function Slider({ label, value, min, max, step, onChange }: { label: string; value: number; min: number; max: number; step: number; onChange: (v: number) => void }) {
+  return (
+    <label className="flex items-center gap-2 font-hud text-[11px] tracking-wider text-term-text">
+      <span className="w-20 shrink-0">{label}</span>
+      <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(Number(e.target.value))} className="flex-1 accent-primary" />
+      <span className="w-9 text-right font-mono text-[10px] text-term-dim">{Math.round(value * 100)}%</span>
+    </label>
+  );
+}
+
 const field = "w-full border border-primary/40 bg-term-bg px-2 py-1.5 font-mono text-xs text-term-text outline-none focus:border-primary";
 const btn = "border border-primary/50 px-3 py-1.5 font-hud text-[11px] tracking-wider text-primary hover:bg-primary/10";
+const MOODS = { positive: ["◆ UPBEAT", "text-primary"], neutral: ["◇ CALM", "text-term-text"], concerned: ["▲ CONCERNED", "text-destructive"] } as const;
 
 function Mainframe() {
+  const [tab, setTab] = useState<Tab>("mainframe");
   const [s, setS] = useState<Settings | null>(null);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [mics, setMics] = useState<MediaDeviceInfo[]>([]);
@@ -52,27 +110,33 @@ function Mainframe() {
   const [apps, setApps] = useState<number | null>(null);
   const [memory, setMemory] = useState<JarvisMemory>({ facts: [], history: [] });
   const [fact, setFact] = useState("");
+  const [mood, setMood] = useState<{ mood: keyof typeof MOODS; text: string } | null>(null);
+  const [live, setLive] = useState("idle");
+  const [srv, setSrv] = useState({ name: "", link: "" });
 
   useEffect(() => {
     document.documentElement.style.background = "transparent";
     document.body.style.background = "transparent";
     setS(loadSettings());
-    const refreshMemory = () => setMemory(loadMemory());
-    refreshMemory();
-    window.addEventListener("storage", refreshMemory);
-    window.addEventListener("jarvis-memory-changed", refreshMemory);
+    const refresh = () => {
+      setMemory(loadMemory());
+      try { setMood(JSON.parse(localStorage.getItem("jarvis-mood") || "null")); } catch { /* ignore */ }
+      try { setLive(JSON.parse(localStorage.getItem("jarvis-status") || "{}").mode || "idle"); } catch { /* ignore */ }
+    };
+    refresh();
+    window.addEventListener("storage", refresh);
+    window.addEventListener("jarvis-memory-changed", refresh);
     const lv = () => setVoices(speechSynthesis.getVoices().filter((v) => v.lang.startsWith("en")));
     lv();
     speechSynthesis.onvoiceschanged = lv;
-    const s0 = loadSettings();
-    bridge()?.localStatus?.(s0.localModel).then(setLocal);
+    bridge()?.localStatus?.(loadSettings().localModel).then(setLocal);
     const off = bridge()?.onCmd((n, a) => { if (n === "setup-progress") setDl(a as { text: string; pct: number | null }); });
     navigator.mediaDevices?.enumerateDevices().then((d) => {
       setMics(d.filter((x) => x.kind === "audioinput"));
       setCable(d.some((x) => x.kind === "audiooutput" && /cable input/i.test(x.label)));
     }).catch(() => {});
     bridge()?.listApps?.().then((a) => setApps(a.length)).catch(() => {});
-    return () => { off?.(); window.removeEventListener("storage", refreshMemory); window.removeEventListener("jarvis-memory-changed", refreshMemory); };
+    return () => { off?.(); window.removeEventListener("storage", refresh); window.removeEventListener("jarvis-memory-changed", refresh); };
   }, []);
 
   if (!s) return null;
@@ -101,147 +165,191 @@ function Mainframe() {
   const testVoice = () => {
     const u = new SpeechSynthesisUtterance("At your service, sir.");
     u.voice = voices.find((v) => v.name === s.voiceName) || voices.find((v) => /en-GB/.test(v.lang)) || null;
+    u.volume = s.volume; u.rate = s.rate;
     speechSynthesis.cancel();
     speechSynthesis.speak(u);
   };
 
-  const active = BRAINS.find((x) => x.id === s.brain)!;
+  const m = mood ? MOODS[mood.mood] ?? MOODS.neutral : MOODS.neutral;
+  const servers = s.discordServers ?? [];
 
   return (
     <div className="h-screen w-screen p-1 select-none">
-      <div className="hud-panel flex h-full flex-col overflow-y-auto">
-        <header className="flex items-center justify-between px-5 py-4" style={{ WebkitAppRegion: "drag" } as React.CSSProperties}>
-          <h1 className="font-hud text-xl font-bold tracking-[0.2em] text-primary">MAINFRAME</h1>
+      <div className="hud-panel flex h-full flex-col">
+        <header className="flex items-center justify-between px-4 pt-3 pb-2" style={{ WebkitAppRegion: "drag" } as React.CSSProperties}>
+          <h1 className="font-hud text-lg font-bold tracking-[0.2em] text-primary">MAINFRAME</h1>
           <div className="flex gap-1" style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}>
-            <button aria-label="Minimise" onClick={() => b?.cmd("mf-min")} className="p-1.5 text-term-dim hover:text-primary"><Minus size={16} /></button>
-            <button aria-label="Close" onClick={() => (b ? b.cmd("mf-close") : window.close())} className="p-1.5 text-term-dim hover:text-destructive"><X size={16} /></button>
+            <button aria-label="Minimise" onClick={() => b?.cmd("mf-min")} className="p-1 text-term-dim hover:text-primary"><Minus size={15} /></button>
+            <button aria-label="Close" onClick={() => (b ? b.cmd("mf-close") : window.close())} className="p-1 text-term-dim hover:text-destructive"><X size={15} /></button>
           </div>
         </header>
 
-        <Section title="BRAIN">
-          <p className="mb-1 font-sans text-lg font-semibold text-term-text">{active.label === "LOCAL · GEMMA" ? `Local · ${s.localModel}` : active.label}</p>
-          <p className="mb-3 font-mono text-[11px] italic text-term-dim">Pick one. Only one brain runs at a time.</p>
-          <div className="space-y-1.5">
-            {BRAINS.map((x) => (
-              <button key={x.id} onClick={() => { set({ brain: x.id }); setStatus(""); }} className="flex w-full items-center gap-2 text-left">
-                <span className={`text-xs ${s.brain === x.id ? "text-primary" : "text-term-dim"}`}>{s.brain === x.id ? "◆" : "◇"}</span>
-                <span className={`font-hud text-xs tracking-wider ${s.brain === x.id ? "text-primary" : "text-term-text"}`}>{x.label}</span>
-                <span className="font-mono text-[11px] text-term-dim">{x.note}</span>
-              </button>
-            ))}
-          </div>
+        <div className="mx-4 mb-2 flex items-center gap-2 border border-primary/30 px-2 py-1.5" aria-live="polite">
+          <span className={`h-2 w-2 rounded-full bg-primary ${live !== "idle" ? "animate-pulse" : "opacity-60"}`} />
+          <span className="font-hud text-[10px] tracking-widest text-term-dim">STATUS</span>
+          <span className="font-mono text-[11px] uppercase text-term-text">{live}</span>
+          <span className="ml-auto font-hud text-[10px] tracking-widest text-term-dim">SENTIMENT</span>
+          <span className={`font-hud text-[11px] tracking-wider ${m[1]}`} title={mood?.text}>{m[0]}</span>
+        </div>
 
-          {s.brain === "local" && (
-            <div className="mt-3 space-y-2">
-              <div className="grid grid-cols-2 gap-2">
-                <input className={field} value={s.localModel} onChange={(e) => set({ localModel: e.target.value })} placeholder="gemma4:e4b" aria-label="Local model" />
-                <input className={field} value={s.localUrl} onChange={(e) => set({ localUrl: e.target.value })} aria-label="Local address" />
-              </div>
-              <p className="font-mono text-[11px] text-term-dim">
-                {local == null ? "Status: open in the desktop app to check." : local.hasModel ? "◆ Installed and ready." : local.running ? "Engine ready, model not downloaded yet." : "Not installed yet."}
-              </p>
-              {dl ? (
-                <div className="space-y-1">
-                  <div className="h-2 w-full border border-primary/50">
-                    <div className={`h-full bg-primary transition-all ${dl.pct == null ? "w-1/3 animate-pulse" : ""}`} style={dl.pct == null ? undefined : { width: `${Math.round(dl.pct * 100)}%` }} />
+        <nav className="mx-4 flex gap-1" role="tablist">
+          {(["mainframe", "settings", "skills"] as Tab[]).map((t) => (
+            <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)}
+              className={`flex-1 border-b-2 py-1.5 font-hud text-[11px] tracking-widest ${tab === t ? "border-primary text-primary" : "border-transparent text-term-dim hover:text-term-text"}`}>
+              {t.toUpperCase()}
+            </button>
+          ))}
+        </nav>
+
+        <div className="mt-1 flex-1 overflow-y-auto">
+          {tab === "mainframe" && (<>
+            <Section title="BRAIN">
+              <HudSelect label="Brain" value={s.brain} options={BRAINS} onChange={(v) => { set({ brain: v }); setStatus(""); }} />
+              {s.brain === "local" && (
+                <div className="mt-2 space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <input className={field} value={s.localModel} onChange={(e) => set({ localModel: e.target.value })} placeholder="gemma4:e4b" aria-label="Local model" />
+                    <input className={field} value={s.localUrl} onChange={(e) => set({ localUrl: e.target.value })} aria-label="Local address" />
                   </div>
-                  <p className="font-mono text-[11px] text-term-reply">{dl.text}</p>
+                  <p className="font-mono text-[10px] text-term-dim">
+                    {local == null ? "Status: open in the desktop app to check." : local.hasModel ? "◆ Installed and ready." : local.running ? "Engine ready, model not downloaded yet." : "Not installed yet."}
+                  </p>
+                  {dl ? (
+                    <div className="space-y-1">
+                      <div className="h-2 w-full border border-primary/50">
+                        <div className={`h-full bg-primary transition-all ${dl.pct == null ? "w-1/3 animate-pulse" : ""}`} style={dl.pct == null ? undefined : { width: `${Math.round(dl.pct * 100)}%` }} />
+                      </div>
+                      <p className="font-mono text-[10px] text-term-reply">{dl.text}</p>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      {!local?.hasModel && <button className={btn} onClick={install}>DOWNLOAD &amp; INSTALL (~10 GB)</button>}
+                      <button className={btn} onClick={test}>TEST</button>
+                    </div>
+                  )}
                 </div>
-              ) : (
-                <div className="flex gap-2">
-                  {!local?.hasModel && <button className={btn} onClick={install}>DOWNLOAD &amp; INSTALL (~10 GB)</button>}
+              )}
+              {s.brain === "custom" && (
+                <div className="mt-2 space-y-2">
+                  <input className={field} value={s.customUrl} onChange={(e) => set({ customUrl: e.target.value })} placeholder="https://api.openai.com/v1" aria-label="API address" />
+                  <div className="grid grid-cols-2 gap-2">
+                    <input className={field} type="password" value={s.customKey} onChange={(e) => set({ customKey: e.target.value })} placeholder="API key" aria-label="API key" />
+                    <input className={field} value={s.customModel} onChange={(e) => set({ customModel: e.target.value })} placeholder="Model" aria-label="Model" />
+                  </div>
                   <button className={btn} onClick={test}>TEST</button>
                 </div>
               )}
-              <p className="font-mono text-[10px] text-term-dim">Until Gemma is ready, Jarvis uses the free cloud brain.</p>
-            </div>
-          )}
-          {s.brain === "custom" && (
-            <div className="mt-3 space-y-2">
-              <input className={field} value={s.customUrl} onChange={(e) => set({ customUrl: e.target.value })} placeholder="https://api.openai.com/v1" aria-label="API address" />
+              {status && <p className="mt-2 break-words font-mono text-[10px] text-term-reply">{status}</p>}
+            </Section>
+
+            <Section title="PERSONALITY">
               <div className="grid grid-cols-2 gap-2">
-                <input className={field} type="password" value={s.customKey} onChange={(e) => set({ customKey: e.target.value })} placeholder="API key" aria-label="API key" />
-                <input className={field} value={s.customModel} onChange={(e) => set({ customModel: e.target.value })} placeholder="Model" aria-label="Model" />
+                <input className={field} value={s.userName} onChange={(e) => set({ userName: e.target.value })} placeholder="Preferred name" aria-label="Preferred name" maxLength={40} />
+                <HudSelect label="Personality" value={s.personality} onChange={(v) => set({ personality: v })}
+                  options={[{ value: "classic", label: "Classic butler" }, { value: "warm", label: "Warm" }, { value: "sarcastic", label: "Sarcastic" }]} />
               </div>
-              <p className="font-mono text-[10px] text-term-dim">Works with OpenAI, OpenRouter, Groq, LM Studio — anything OpenAI-compatible. Key stays on this PC.</p>
-              <button className={btn} onClick={test}>TEST</button>
-            </div>
-          )}
-          {status && <p className="mt-2 break-words font-mono text-[11px] text-term-reply">{status}</p>}
-        </Section>
+            </Section>
 
-        <Section title="VOICE" right={<span className="font-mono text-[10px] text-term-dim">Say "Hey Jarvis"</span>}>
-          <div className="mb-3 space-y-1.5">
-            {[[true, "SPEAK", "Jarvis talks back"], [false, "SILENT", "Text only"]].map(([v, l, n]) => (
-              <button key={String(v)} onClick={() => set({ voiceOn: v as boolean })} className="flex w-full items-center gap-2 text-left">
-                <span className={`text-xs ${s.voiceOn === v ? "text-primary" : "text-term-dim"}`}>{s.voiceOn === v ? "◆" : "◇"}</span>
-                <span className={`font-hud text-xs tracking-wider ${s.voiceOn === v ? "text-primary" : "text-term-text"}`}>{l as string}</span>
-                <span className="font-mono text-[11px] text-term-dim">{n as string}</span>
-              </button>
-            ))}
-          </div>
-          <div className="space-y-2">
-            <div className="flex gap-2">
-              <select className={field} value={s.voiceName} onChange={(e) => set({ voiceName: e.target.value })} aria-label="Voice">
-                <option value="">Voice: best British voice</option>
-                {voices.map((v) => <option key={v.name} value={v.name}>{v.name} ({v.lang})</option>)}
-              </select>
-              <button className={btn} onClick={testVoice}>TEST</button>
-            </div>
-            <select className={field} value={s.micId} onChange={(e) => set({ micId: e.target.value })} aria-label="Microphone">
-              <option value="">Mic: Windows default</option>
-              {mics.filter((m) => m.deviceId !== "default").map((m) => <option key={m.deviceId} value={m.deviceId}>{m.label || "Microphone"}</option>)}
-            </select>
-            <p className="font-mono text-[10px] text-term-dim">Speaker: Windows default. Mic changes apply after Reboot systems.</p>
-            <label className="flex items-center gap-2 font-hud text-xs tracking-wider text-term-text">
-              <input type="checkbox" checked={s.wakeWord} onChange={(e) => set({ wakeWord: e.target.checked })} className="accent-primary" />
-              LISTEN FOR "HEY JARVIS"
-            </label>
-          </div>
-        </Section>
+            <Section title="JARVIS" right={<span className="font-mono text-[10px] text-term-dim">v{VERSION}</span>}>
+              <div className="grid grid-cols-3 gap-2">
+                <button className={btn} onClick={() => b?.cmd("toggle")}>HIDE / SHOW</button>
+                <button className={btn} onClick={() => b?.cmd("move", "center")}>BRING HERE</button>
+                <button className={btn} onClick={() => b?.cmd("reload")}>REBOOT</button>
+              </div>
+              <button className="mt-2 w-full border border-destructive/60 py-1.5 font-hud text-[11px] tracking-wider text-destructive hover:bg-destructive/10" onClick={() => b?.cmd("quit")}>SHUT DOWN JARVIS</button>
+            </Section>
+          </>)}
 
-        <Section title="SKILLS" right={<span className="font-mono text-[10px] text-term-dim">Things Jarvis can do</span>}>
-          <ul className="mb-3 space-y-1 font-mono text-[11px] text-term-dim">
-            <li><span className="text-primary">◆</span> <span className="text-term-text">"Open Steam"</span> — opens any installed app{apps != null && ` (${apps} found)`}</li>
-            <li><span className="text-primary">◆</span> <span className="text-term-text">"Play Blinding Lights by The Weeknd"</span> — types it into Spotify and plays it</li>
-            <li><span className="text-primary">◆</span> <span className="text-term-text">"Join Discord and tell them I'll be 5 minutes"</span></li>
-          </ul>
-          <input className={field} value={s.discordLink} onChange={(e) => set({ discordLink: e.target.value.trim() })} placeholder="Discord voice channel link (right-click channel → Copy Link)" aria-label="Discord call link" />
-          <div className="mt-2 flex items-center justify-between gap-2">
-            <p className="font-mono text-[11px] text-term-dim">
-              {cable ? <span className="text-primary">◆ VB-Cable found.</span> : "VB-Cable not found — needed to speak in calls."}
-            </p>
-            {!cable && <button className={btn} onClick={() => b?.openUrl?.("https://vb-audio.com/Cable/")}>GET VB-CABLE</button>}
-          </div>
-          <p className="mt-1 font-mono text-[10px] text-term-dim">In Discord, set Voice → Input Device to "CABLE Output" so the call hears Jarvis.</p>
-        </Section>
+          {tab === "settings" && (<>
+            <Section title="VOICE & AUDIO">
+              <div className="space-y-2">
+                <Toggle on={s.voiceOn} onChange={(v) => set({ voiceOn: v })} label="SPEAK REPLIES" note="Off = text only" />
+                <div className="flex gap-2">
+                  <HudSelect label="Voice" value={s.voiceName} onChange={(v) => set({ voiceName: v })}
+                    options={[{ value: "", label: "Best British voice" }, ...voices.map((v) => ({ value: v.name, label: v.name, note: v.lang }))]} />
+                  <button className={btn} onClick={testVoice}>TEST</button>
+                </div>
+                <Slider label="LOUDNESS" value={s.volume} min={0} max={1} step={0.05} onChange={(v) => set({ volume: v })} />
+                <Slider label="SPEED" value={s.rate} min={0.6} max={1.6} step={0.05} onChange={(v) => set({ rate: v })} />
+                <HudSelect label="Microphone" value={s.micId} onChange={(v) => set({ micId: v })}
+                  options={[{ value: "", label: "Mic: Windows default" }, ...mics.filter((x) => x.deviceId !== "default").map((x) => ({ value: x.deviceId, label: x.label || "Microphone" }))]} />
+                <Toggle on={s.wakeWord} onChange={(v) => set({ wakeWord: v })} label={'LISTEN FOR "HEY JARVIS"'} />
+                <Toggle on={s.voiceToCable} onChange={(v) => set({ voiceToCable: v })} label="ALSO SPEAK INTO VB-CABLE" note={cable ? "Found" : "Not installed"} />
+              </div>
+            </Section>
 
-        <Section title="MEMORY" right={<span className="font-mono text-[10px] text-term-dim">{memory.facts.length} saved facts</span>}>
-          <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); remember(fact); setFact(""); }}>
-            <input className={field} aria-label="New memory" placeholder="A fact to remember…" value={fact} onChange={(e) => setFact(e.target.value)} maxLength={1000} />
-            <Button type="submit" variant="outline" size="icon" aria-label="Save memory" title="Save memory" disabled={!fact.trim()}><Plus size={16} /></Button>
-          </form>
-          <ul className="mt-2 max-h-40 space-y-1 overflow-y-auto">
-            {memory.facts.map((f) => <li key={f} className="flex items-center justify-between gap-2 border-b border-primary/20 py-1 font-mono text-xs text-term-text">
-              <span className="min-w-0 break-words">{f}</span>
-              <Button variant="ghost" size="icon" className="shrink-0" onClick={() => forget(f)} aria-label={`Forget ${f}`} title="Forget memory"><Trash2 size={14} /></Button>
-            </li>)}
-          </ul>
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-            <span className="font-mono text-[10px] text-term-dim">Stored on this PC · {memory.history.length} recent messages · Sent to your chosen AI when chatting</span>
-            <Button variant="outline" size="sm" disabled={!memory.facts.length && !memory.history.length} onClick={() => { if (window.confirm("Clear all saved facts and conversation?")) clearMemory(); }}><Trash2 size={14} /> Clear memory</Button>
-          </div>
-        </Section>
+            <Section title="SYSTEM">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="w-20 shrink-0 font-hud text-[11px] tracking-wider text-term-text">SIZE</span>
+                  <HudSelect label="Jarvis size" value={s.size} onChange={(v: Size) => { set({ size: v }); b?.cmd("size", v); }}
+                    options={[{ value: "small", label: "Small" }, { value: "medium", label: "Medium" }, { value: "large", label: "Large" }, { value: "huge", label: "Huge" }]} />
+                </div>
+                <Toggle on={s.alwaysOnTop} onChange={(v) => { set({ alwaysOnTop: v }); b?.cmd("always-on-top", v); }} label="ALWAYS ON TOP" />
+                <Toggle on={s.startup} onChange={(v) => { set({ startup: v }); b?.cmd("startup", v); }} label="START WITH WINDOWS" />
+              </div>
+            </Section>
 
-        <Section title="JARVIS" right={<span className="font-mono text-[10px] text-term-dim">v{VERSION}</span>}>
-          <div className="grid grid-cols-3 gap-2">
-            <button className={btn} onClick={() => b?.cmd("toggle")}>HIDE / SHOW</button>
-            <button className={btn} onClick={() => b?.cmd("move", "center")}>BRING HERE</button>
-            <button className={btn} onClick={() => b?.cmd("reload")}>REBOOT</button>
-          </div>
-          <button className="mt-3 w-full border border-destructive/60 py-2 font-hud text-xs tracking-wider text-destructive hover:bg-destructive/10" onClick={() => b?.cmd("quit")}>SHUT DOWN JARVIS</button>
-          <button className="mt-2 w-full py-1 font-mono text-[10px] text-term-dim hover:text-destructive" onClick={() => b?.cmd("uninstall")}>Uninstall Jarvis…</button>
-        </Section>
+            <Section title="MEMORY" right={<span className="font-mono text-[10px] text-term-dim">{memory.facts.length} saved facts</span>}>
+              <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); remember(fact); setFact(""); }}>
+                <input className={field} aria-label="New memory" placeholder="A fact to remember…" value={fact} onChange={(e) => setFact(e.target.value)} maxLength={1000} />
+                <Button type="submit" variant="outline" size="icon" aria-label="Save memory" disabled={!fact.trim()}><Plus size={16} /></Button>
+              </form>
+              <ul className="mt-2 max-h-32 space-y-1 overflow-y-auto">
+                {memory.facts.map((f) => <li key={f} className="flex items-center justify-between gap-2 border-b border-primary/20 py-1 font-mono text-xs text-term-text">
+                  <span className="min-w-0 break-words">{f}</span>
+                  <Button variant="ghost" size="icon" className="shrink-0" onClick={() => forget(f)} aria-label={`Forget ${f}`}><Trash2 size={14} /></Button>
+                </li>)}
+              </ul>
+              <div className="mt-2 flex items-center justify-between gap-2">
+                <span className="font-mono text-[10px] text-term-dim">Stored on this PC · {memory.history.length} recent messages</span>
+                <Button variant="outline" size="sm" disabled={!memory.facts.length && !memory.history.length} onClick={() => { if (window.confirm("Clear all saved facts and conversation?")) clearMemory(); }}><Trash2 size={14} /> Clear</Button>
+              </div>
+              <button className="mt-2 w-full py-1 font-mono text-[10px] text-term-dim hover:text-destructive" onClick={() => b?.cmd("uninstall")}>Uninstall Jarvis…</button>
+            </Section>
+          </>)}
+
+          {tab === "skills" && (<>
+            <Section title="SKILLS">
+              <ul className="space-y-1 font-mono text-[11px] text-term-dim">
+                <li><span className="text-primary">◆</span> <span className="text-term-text">"Open Steam"</span> — opens any installed app{apps != null && ` (${apps} found)`}</li>
+                <li><span className="text-primary">◆</span> <span className="text-term-text">"Play Blinding Lights by The Weeknd"</span> — Spotify</li>
+                <li><span className="text-primary">◆</span> <span className="text-term-text">"Hop in a VC on Discord and tell my friends I'll be a few mins"</span></li>
+                <li><span className="text-primary">◆</span> <span className="text-term-text">"…on the Gaming server…"</span> — picks a saved channel by name</li>
+              </ul>
+            </Section>
+
+            <Section title="DISCORD CHANNELS" right={<span className="font-mono text-[10px] text-term-dim">{servers.length} saved</span>}>
+              <form className="space-y-2" onSubmit={(e) => {
+                e.preventDefault();
+                if (!srv.name.trim() || !srv.link.trim()) return;
+                set({ discordServers: [...servers.filter((x) => x.name.toLowerCase() !== srv.name.trim().toLowerCase()), { name: srv.name.trim(), link: srv.link.trim() }] });
+                setSrv({ name: "", link: "" });
+              }}>
+                <div className="grid grid-cols-[1fr_2fr_auto] gap-2">
+                  <input className={field} value={srv.name} onChange={(e) => setSrv({ ...srv, name: e.target.value })} placeholder="Name (Gaming)" aria-label="Server name" maxLength={30} />
+                  <input className={field} value={srv.link} onChange={(e) => setSrv({ ...srv, link: e.target.value })} placeholder="Voice channel link" aria-label="Voice channel link" />
+                  <Button type="submit" variant="outline" size="icon" aria-label="Save channel" disabled={!srv.name.trim() || !srv.link.trim()}><Plus size={16} /></Button>
+                </div>
+              </form>
+              <ul className="mt-2 space-y-1">
+                {servers.map((x) => <li key={x.name} className="flex items-center justify-between gap-2 border-b border-primary/20 py-1 font-mono text-xs text-term-text">
+                  <span className="min-w-0 truncate"><span className="text-primary">{x.name}</span> · <span className="text-term-dim">{x.link}</span></span>
+                  <Button variant="ghost" size="icon" className="shrink-0" onClick={() => set({ discordServers: servers.filter((y) => y.name !== x.name) })} aria-label={`Remove ${x.name}`}><Trash2 size={14} /></Button>
+                </li>)}
+              </ul>
+              <p className="mt-2 font-mono text-[10px] text-term-dim">In Discord: right-click a voice channel → Copy Link. The first saved channel is the default.</p>
+            </Section>
+
+            <Section title="VB-CABLE">
+              <div className="flex items-center justify-between gap-2">
+                <p className="font-mono text-[11px] text-term-dim">{cable ? <span className="text-primary">◆ VB-Cable found.</span> : "VB-Cable not found — needed for Jarvis to talk in calls."}</p>
+                {!cable && <button className={btn} onClick={() => b?.openUrl?.("https://vb-audio.com/Cable/")}>GET VB-CABLE</button>}
+              </div>
+              <p className="mt-1 font-mono text-[10px] text-term-dim">In Discord, set Voice → Input Device to "CABLE Output" so your friends hear Jarvis.</p>
+            </Section>
+          </>)}
+        </div>
       </div>
     </div>
   );

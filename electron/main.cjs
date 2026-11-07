@@ -142,7 +142,7 @@ function openMainframe() {
   if (mainframe && !mainframe.isDestroyed()) { mainframe.show(); mainframe.focus(); return; }
   const wa = screen.getPrimaryDisplay().workArea;
   mainframe = new BrowserWindow({
-    width: 480, height: Math.min(1040, wa.height - 20), frame: false, transparent: true, resizable: false,
+    width: 460, height: Math.min(720, wa.height - 20), frame: false, transparent: true, resizable: false,
     backgroundColor: "#00000000", title: "Jarvis Mainframe", icon: ICON, webPreferences: webPrefs,
   });
   mainframe.webContents.on("did-finish-load", () => mainframe.webContents.insertCSS(CLEAR_CSS));
@@ -184,6 +184,10 @@ ipcMain.on("cmd", (e, name, arg) => {
     case "reload": return mate.reload();
     case "quit": return app.quit();
     case "uninstall": return openSetup("uninstall");
+    case "always-on-top": mate.setAlwaysOnTop(!!arg, "floating"); return;
+    case "startup":
+      try { app.setLoginItemSettings({ openAtLogin: !!arg, ...(typeof INSTALLED_EXE !== "undefined" ? { path: INSTALLED_EXE } : {}) }); } catch { /* ignore */ }
+      return;
     case "mf-close": return sender && sender.close();
     case "mf-min": return sender && sender.minimize();
     default:
