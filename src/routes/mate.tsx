@@ -302,9 +302,9 @@ function Mate() {
         )}
 
         <div data-hit onMouseEnter={enter} onMouseLeave={leave} className="flex flex-col items-center gap-2">
-          <div className="relative flex items-center">
+          <div className="relative mb-4 h-32 w-32">
             <button aria-label="Type to Jarvis" onClick={() => { setTyping(true); setReply(""); setYou(""); }}
-              className={`hud-node mr-1 transition-all duration-200 ${hover || typing ? "opacity-100" : "pointer-events-none translate-x-3 opacity-0"}`}>
+              className={`hud-node absolute -bottom-1 -left-7 z-10 transition-all duration-200 ${hover || typing ? "opacity-100" : "pointer-events-none translate-x-3 -translate-y-3 opacity-0"}`}>
               <Pencil size={13} />
             </button>
             <button
@@ -318,7 +318,7 @@ function Mate() {
                 className={`pointer-events-none absolute inset-0 h-full w-full ${busy ? "animate-spin-fast" : "animate-spin-slow"} ${mode === "listening" || mode === "speaking" ? "animate-core-fast" : ""}`} />
             </button>
             <button aria-label="Talk to Jarvis" onClick={() => (mode === "listening" ? (endListen(), setReply("")) : listenNow())}
-              className={`hud-node ml-1 transition-all duration-200 ${mode === "listening" ? "text-primary" : ""} ${hover || typing ? "opacity-100" : "pointer-events-none -translate-x-3 opacity-0"}`}>
+              className={`hud-node absolute -bottom-1 -right-7 z-10 transition-all duration-200 ${mode === "listening" ? "text-primary" : ""} ${hover || typing ? "opacity-100" : "pointer-events-none -translate-x-3 -translate-y-3 opacity-0"}`}>
               <AudioLines size={13} />
             </button>
           </div>

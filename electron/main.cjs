@@ -52,7 +52,9 @@ function showMenu() {
   const { workArea } = screen.getDisplayNearestPoint(pt);
   const [mw, mh] = menu.getSize();
   const x = Math.min(Math.max(Math.round(pt.x - mw / 2), workArea.x), workArea.x + workArea.width - mw);
-  const y = pt.y > workArea.y + workArea.height / 2 ? workArea.y + workArea.height - mh - 4 : workArea.y + 4;
+  // Sit just above the tray icon (or the overflow flyout icon), never on top of it.
+  const above = Math.round(pt.y - mh - 8);
+  const y = above >= workArea.y ? above : Math.round(tb.y + (tb.height || 0) + 8);
   menu.setPosition(x, y);
   menu.webContents.send("cmd", "refresh");
   menu.show();
