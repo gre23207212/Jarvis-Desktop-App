@@ -28,3 +28,4 @@ use the editor.
   own key and store it in Secrets.
 - **Secrets.** Lovable manages them. Do not put secret values in the repo.
 <!-- LOVABLE:END -->
+- Desktop shell (electron/) loads published /mate, /tray-menu, /mainframe pages; settings live in browser storage shared across those windows, and local/custom AI calls go through the main process to avoid browser restrictions.
