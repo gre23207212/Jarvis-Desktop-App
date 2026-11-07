@@ -27,6 +27,9 @@ function createWindow() {
   });
   win.setAlwaysOnTop(true, "floating");
   win.setVisibleOnAllWorkspaces(true);
+  win.webContents.on("did-finish-load", () => {
+    win.webContents.insertCSS("html,body{overflow:hidden!important}::-webkit-scrollbar{display:none}");
+  });
   win.loadURL(MATE_URL);
 }
 

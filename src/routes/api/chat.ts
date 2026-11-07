@@ -22,6 +22,25 @@ export const Route = createFileRoute("/api/chat")({
       POST: async ({ request }) => {
         const parsed = Body.safeParse(await request.json().catch(() => null));
         if (!parsed.success) return Response.json({ error: "Invalid request" }, { status: 400 });
+        const key = process.env["JARVIS_AI"];
+        if (key) {
+          const r = await fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              model: "gpt-4o-mini",
+              stream: true,
+              messages: [{ role: "system", content: SYSTEM }, ...parsed.data.messages],
+            }),
+          });
+          if (!r.ok || !r.body) {
+            const msg = r.status === 401 ? "My access key was rejected, sir. Please check the ChatGPT key."
+              : r.status === 429 ? "ChatGPT says we're out of quota or going too fast, sir."
+              : "I'm having trouble reaching my core systems, sir.";
+            return Response.json({ error: msg }, { status: r.status });
+          }
+          return new Response(r.body, { headers: { "Content-Type": "text/event-stream" } });
+        }
         const { streamChatCompletion, GatewayError } = await import("@lovable.dev/ai-gateway");
         try {
           const stream = await streamChatCompletion({

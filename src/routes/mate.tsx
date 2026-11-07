@@ -29,7 +29,7 @@ const PERKS = [
 
 function Mate() {
   const [mode, setMode] = useState<Mode>("idle");
-  const [bubble, setBubble] = useState("Good evening, sir. Click me to talk.");
+  const [bubble, setBubble] = useState("Good evening, sir. Click me and speak.");
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const history = useRef<Msg[]>([]);
@@ -38,6 +38,8 @@ function Mate() {
   useEffect(() => {
     document.documentElement.style.background = "transparent";
     document.body.style.background = "transparent";
+    document.documentElement.style.overflow = "hidden";
+    document.body.style.overflow = "hidden";
     const t = setInterval(() => {
       const idle = Date.now() - lastActive.current;
       if (idle > 180000) setMode((m) => (m === "idle" ? "sleeping" : m));
@@ -124,7 +126,10 @@ function Mate() {
   const fast = mode === "thinking" || mode === "speaking";
 
   return (
-    <div className="flex h-screen w-screen flex-col items-center justify-end gap-2 p-2 select-none" style={{ background: "transparent" }}>
+    <div className="relative flex h-screen w-screen flex-col items-center justify-end gap-2 overflow-hidden p-2 select-none" style={{ background: "transparent" }}>
+      {!open && (
+        <button onClick={() => setOpen(true)} aria-label="Type instead" className="mate-nodrag absolute right-2 top-2 rounded border border-border bg-popover px-2 py-1 text-xs text-muted-foreground">Type</button>
+      )}
       {bubble && mode !== "sleeping" && (
         <div className="max-w-[260px] rounded-lg border border-border bg-popover px-3 py-2 text-sm leading-snug text-popover-foreground shadow-glow">
           {bubble}
@@ -139,8 +144,7 @@ function Mate() {
         </form>
       )}
       <button
-        onClick={() => { wake(); setOpen(true); }}
-        onDoubleClick={listen}
+        onClick={() => { if (mode === "speaking") { speechSynthesis.cancel(); setMode("idle"); } else if (mode !== "listening" && mode !== "thinking") listen(); }}
         aria-label="Jarvis"
         className="mate-drag relative h-32 w-32 shrink-0"
       >
