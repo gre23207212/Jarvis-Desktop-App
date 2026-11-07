@@ -94,17 +94,17 @@ export function parseAction(text: string): Action | null {
   const s = text.trim().replace(/[.!?]+$/, "");
   const polite = "(?:(?:can|could|would) you |please |jarvis,? )*";
   let m = s.match(/\bjoin\b.*?\bdiscord\b.*?\b(?:tell|say|let)\b(?:\s+(?:them|everyone|the call|the guys))?(?:\s+know)?(?:\s+that)?\s+(.+)$/i);
-  if (m) return { kind: "discord", message: m[1].trim() };
+  if (m) return { kind: "discord", message: (m[1] ?? "").trim() };
   if (/\bjoin\b.*\bdiscord\b/i.test(s)) return { kind: "discord", message: "" };
   m = s.match(new RegExp(`^${polite}(?:play|put on)\\s+(.+?)(?:\\s+on spotify)?$`, "i"))
     || s.match(/\bi(?: want|'d like| would like) to (?:play|listen to|hear)\s+(.+?)(?:\s+on spotify)?$/i);
   if (m) {
-    const query = m[1].replace(/^(?:the song|song|some)\s+/i, "").replace(/["“”‘’']/g, "").replace(/\s+by\s+/i, " ").trim();
+    const query = (m[1] ?? "").replace(/^(?:the song|song|some)\s+/i, "").replace(/["“”‘’']/g, "").replace(/\s+by\s+/i, " ").trim();
     if (query) return { kind: "spotify", query };
   }
   if (/\b(?:what|which|list|show)\b.*\b(?:apps|programs|applications|games)\b/i.test(s)) return { kind: "apps" };
   m = s.match(new RegExp(`^${polite}(?:open|launch|start|run|load)\\s+(?:up\\s+)?(?:the\\s+|my\\s+)?(.+?)(?:\\s+(?:app|application|program))?(?:\\s+for me)?$`, "i"));
-  if (m) return { kind: "open", app: m[1].trim() };
+  if (m) return { kind: "open", app: (m[1] ?? "").trim() };
   return null;
 }
 
