@@ -222,9 +222,10 @@ function Mate() {
     if (!link) return "Save your Discord voice channel link in the Mainframe under Skills first, sir.";
     const r = await b.discordJoin!(link);
     if (r.error) return "That Discord link doesn't look right, sir. Copy the voice channel's link again in the Mainframe.";
+    if (r.joined === false) return "I opened the channel, sir, but couldn't press Join Voice. Click it and ask me again.";
     if (!act.message) return "Joining your Discord call, sir.";
     setReply("Joining your Discord call, sir…");
-    await new Promise((res) => setTimeout(res, 5000));
+    await new Promise((res) => setTimeout(res, 2500));
     const who = s.userName && s.userName.toLowerCase() !== "sir" ? s.userName : "my boss";
     const ok = await sayIntoCable(`Message from ${who}: ${act.message}`);
     return ok ? `I've told them: "${act.message}"` : "I joined, sir, but I need VB-Cable installed to speak in the call. There's a button in the Mainframe.";

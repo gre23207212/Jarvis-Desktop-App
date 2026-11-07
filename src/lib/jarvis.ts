@@ -80,7 +80,7 @@ export type Bridge = {
   listApps?: () => Promise<string[]>;
   openApp?: (name: string) => Promise<{ ok?: boolean; name?: string; error?: string }>;
   spotifyPlay?: (query: string) => Promise<{ ok?: boolean; error?: string }>;
-  discordJoin?: (link: string) => Promise<{ ok?: boolean; error?: string }>;
+  discordJoin?: (link: string) => Promise<{ ok?: boolean; joined?: boolean; error?: string }>;
   voiceWav?: (text: string) => Promise<{ wav?: string; error?: string }>;
   openUrl?: (url: string) => void;
 };
