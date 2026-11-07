@@ -129,15 +129,15 @@ export function sentiment(text: string): "positive" | "neutral" | "concerned" {
 const swap = (text: string, rules: [RegExp, string][]) => rules.reduce((t, [re, to]) => t.replace(re, to), ` ${text} `).trim();
 const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 
-/** "I'll be two minutes" -> "he'll be two minutes" (what Jarvis says in the call). */
+/** Relay the user's message using singular they with plural verb agreement. */
 export function thirdPerson(message: string): string {
   return swap(message, [
-    [/\bill\b/g, "he'll"], [/\bim\b/g, "he's"], [/\bive\b/g, "he's"],
-    [/\bI am\b/gi, "he is"], [/\bI'm\b/gi, "he's"], [/\bI was\b/gi, "he was"],
-    [/\bI'll\b/gi, "he'll"], [/\bI've\b/gi, "he's"], [/\bI'd\b/gi, "he'd"],
-    [/\bI have\b/gi, "he has"], [/\bI don't\b/gi, "he doesn't"], [/\bI do\b/gi, "he does"],
-    [/\bI need\b/gi, "he needs"], [/\bI want\b/gi, "he wants"], [/\bI'?ve got\b/gi, "he's got"],
-    [/\bI\b/g, "he"], [/\bmyself\b/gi, "himself"], [/\bmy\b/gi, "his"], [/\bme\b/gi, "him"], [/\bmine\b/gi, "his"],
+    [/\bill\b/g, "they'll"], [/\bim\b/g, "they're"], [/\bive\b/g, "they've"],
+    [/\bI am\b/gi, "they are"], [/\bI'm\b/gi, "they're"], [/\bI was\b/gi, "they were"],
+    [/\bI'll\b/gi, "they'll"], [/\bI've\b/gi, "they've"], [/\bI'd\b/gi, "they'd"],
+    [/\bI have\b/gi, "they have"], [/\bI don't\b/gi, "they don't"], [/\bI do\b/gi, "they do"],
+    [/\bI need\b/gi, "they need"], [/\bI want\b/gi, "they want"], [/\bI'?ve got\b/gi, "they've got"],
+    [/\bI\b/g, "they"], [/\bmyself\b/gi, "themself"], [/\bmy\b/gi, "their"], [/\bme\b/gi, "them"], [/\bmine\b/gi, "theirs"],
   ]);
 }
 

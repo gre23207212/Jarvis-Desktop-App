@@ -14,7 +14,77 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      jarvis_remote_commands: {
+        Row: {
+          channel: string | null
+          created_at: string
+          device_id: string
+          id: string
+          result: string
+          status: string
+          text: string
+        }
+        Insert: {
+          channel?: string | null
+          created_at?: string
+          device_id: string
+          id?: string
+          result?: string
+          status?: string
+          text: string
+        }
+        Update: {
+          channel?: string | null
+          created_at?: string
+          device_id?: string
+          id?: string
+          result?: string
+          status?: string
+          text?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jarvis_remote_commands_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "jarvis_remote_devices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jarvis_remote_devices: {
+        Row: {
+          channels: Json
+          created_at: string
+          desktop_hash: string
+          id: string
+          last_seen: string | null
+          name: string
+          phone_hash: string
+          revoked: boolean
+        }
+        Insert: {
+          channels?: Json
+          created_at?: string
+          desktop_hash: string
+          id?: string
+          last_seen?: string | null
+          name?: string
+          phone_hash: string
+          revoked?: boolean
+        }
+        Update: {
+          channels?: Json
+          created_at?: string
+          desktop_hash?: string
+          id?: string
+          last_seen?: string | null
+          name?: string
+          phone_hash?: string
+          revoked?: boolean
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

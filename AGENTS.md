@@ -32,3 +32,4 @@ use the editor.
 - Both chat surfaces use the shared browser-storage memory module for explicit saved facts and recent conversation; this keeps desktop windows consistent without cloud account requirements.
 - Resolve Discord channel names through the shared selection module and keep pending relay actions in the companion until a unique channel is selected; this prevents accidental joins and preserves follow-up intent.
 - Sequence Discord self-muting through the tested relay helper after successful playback; Windows automation must detect Mute/Unmute state rather than blindly toggle it.
+- Phone remote uses separate high-entropy desktop/phone capability tokens stored hashed in private tables; server functions verify the role-specific capability before device-scoped access. Commands are Discord-only, atomically claimed, short-lived, and executed by the existing mate action path.

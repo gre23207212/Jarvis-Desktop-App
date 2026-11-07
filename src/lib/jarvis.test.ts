@@ -65,11 +65,11 @@ describe("Discord relay wording", () => {
   it("speaks for the boss in third person and confirms in second person", async () => {
     const { relayLines } = await import("./jarvis");
     expect(relayLines("I will be two minutes", "")).toEqual({
-      call: "Hey everyone, Jarvis here. My boss says he will be two minutes.",
+      call: "Hey everyone, Jarvis here. My boss says they will be two minutes.",
       done: "Done, sir. I told them you will be two minutes.",
     });
-    expect(relayLines("ill be a sec", "").call).toBe("Hey everyone, Jarvis here. My boss says he'll be a sec.");
-    expect(relayLines("I'm grabbing my food", "Morgan").call).toBe("Hey everyone, Jarvis here. Morgan says he's grabbing his food.");
-    expect(relayLines("to wait for me", "").call).toBe("Hey everyone, Jarvis here. My boss wants you to wait for him.");
+    expect(relayLines("ill be a sec", "").call).toBe("Hey everyone, Jarvis here. My boss says they'll be a sec.");
+    expect(relayLines("I'm grabbing my food", "Morgan").call).toBe("Hey everyone, Jarvis here. Morgan says they're grabbing their food.");
+    expect(relayLines("to wait for me", "").call).toBe("Hey everyone, Jarvis here. My boss wants you to wait for them.");
   });
 });

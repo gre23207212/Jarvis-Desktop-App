@@ -1,5 +1,13 @@
 {
   "version": "7",
   "dialect": "postgresql",
-  "entries": []
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1794019644654,
+      "tag": "0000_jarvis_phone_remote",
+      "breakpoints": true
+    }
+  ]
 }

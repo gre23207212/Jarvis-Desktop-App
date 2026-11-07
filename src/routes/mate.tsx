@@ -5,6 +5,7 @@ import reactor from "@/assets/jarvis-reactor.png.asset.json";
 import { loadMemory, memoryCommand, memoryContext, saveConversation } from "@/lib/memory";
 import { selectDiscordChannel } from "@/lib/discord-selection";
 import { deliverDiscordMessage } from "@/lib/discord-relay";
+import { useRemoteDesktop } from "@/hooks/use-remote-desktop";
 import type { DiscordServer } from "@/lib/jarvis";
 import { bridge, liveContext, loadSettings, parseAction, parseWake, personaPrompt, relayLines, saveSettings, sentiment, SIZES, SYSTEM_PROMPT, type Action, type Settings } from "@/lib/jarvis";
 
@@ -44,6 +45,21 @@ function Mate() {
   const drag = useRef<{ x: number; y: number; moved: boolean } | null>(null);
   modeRef.current = mode;
   settingsRef.current = settings;
+  useRemoteDesktop(async (job) => {
+    const action = parseAction(job.text);
+    if (action?.kind !== "discord") return { status: "failed", result: "Only Discord voice commands are supported from the phone." };
+    const s = settingsRef.current ?? loadSettings();
+    const selection = selectDiscordChannel(s.discordServers, job.channel || action.server || "", s.discordLink);
+    if (selection.kind === "choose") return { status: "choose", result: `Which channel? ${selection.channels.map((channel) => channel.name).join(", ")}. Choose it on your phone and send again.` };
+    if (selection.kind === "missing") return { status: "failed", result: "Save a voice channel in the PC Mainframe first." };
+    setM("thinking"); setYou(job.text);
+    try {
+      const result = await runAction({ ...action, server: selection.channel.name }, s);
+      setReply(result);
+      const failed = /couldn't|could not|can't|first, sir|unavailable/i.test(result);
+      return { status: failed ? "failed" : "done", result };
+    } finally { setM("idle"); }
+  }, () => modeRef.current !== "idle" || !!pendingDiscord.current);
 
   const setM = (m: Mode) => { modeRef.current = m; setMode(m); try { localStorage.setItem("jarvis-status", JSON.stringify({ mode: m, at: Date.now() })); } catch { /* ignore */ } };
   const setMood = (text: string) => { try { localStorage.setItem("jarvis-mood", JSON.stringify({ mood: sentiment(text), text: text.slice(0, 140), at: Date.now() })); } catch { /* ignore */ } };

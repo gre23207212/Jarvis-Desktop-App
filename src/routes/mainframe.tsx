@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Minus, X, Trash2, Plus, Check, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PhonePairing } from "@/components/phone-pairing";
 import { clearMemory, forget, loadMemory, remember, type JarvisMemory } from "@/lib/memory";
 import { bridge, loadSettings, saveSettings, SYSTEM_PROMPT, VERSION, type Brain, type Settings, type Size } from "@/lib/jarvis";
 
@@ -309,6 +310,7 @@ function Mainframe() {
           </>)}
 
           {tab === "skills" && (<>
+            <Section title="PHONE REMOTE"><PhonePairing /></Section>
             <Section title="SKILLS">
               <ul className="space-y-1 font-mono text-[11px] text-term-dim">
                 <li><span className="text-primary">◆</span> <span className="text-term-text">"Open Steam"</span> — opens any installed app{apps != null && ` (${apps} found)`}</li>
@@ -337,7 +339,7 @@ function Mainframe() {
                   <Button variant="ghost" size="icon" className="shrink-0" onClick={() => set({ discordServers: servers.filter((y) => y.name !== x.name) })} aria-label={`Remove ${x.name}`}><Trash2 size={14} /></Button>
                 </li>)}
               </ul>
-              <p className="mt-2 font-mono text-[10px] text-term-dim">In Discord: right-click a voice channel → Copy Link. The first saved channel is the default.</p>
+              <p className="mt-2 font-mono text-[10px] text-term-dim">In Discord: right-click a voice channel → Copy Link.</p>
             </Section>
 
             <Section title="VB-CABLE">
@@ -345,7 +347,7 @@ function Mainframe() {
                 <p className="font-mono text-[11px] text-term-dim">{cable ? <span className="text-primary">◆ VB-Cable found.</span> : "VB-Cable not found — needed for Jarvis to talk in calls."}</p>
                 {!cable && <button className={btn} onClick={() => b?.openUrl?.("https://vb-audio.com/Cable/")}>GET VB-CABLE</button>}
               </div>
-              <p className="mt-1 font-mono text-[10px] text-term-dim">In Discord, set Voice → Input Device to "CABLE Output" so your friends hear Jarvis.</p>
+              <p className="mt-1 font-mono text-[10px] text-term-dim">Discord Input Device: Default.</p>
             </Section>
           </>)}
         </div>

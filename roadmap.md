@@ -11,3 +11,6 @@
 - [x] Repackage Windows zip
 - [x] Hop in a VC on Discord and tell my friends…' → join saved channel, speak via VB-Cable
 - [x] Ask for a saved Discord channel and listen for the name before joining; preserve the relay message. Selection tested in browser with a simulated desktop connection; real microphone/Windows Discord remains unverified.
+- [x] Use they/them in Discord relay messages and retain post-message muting.
+- [x] Add secure phone pairing, typed/spoken remote Discord commands and PC status/results.
+- [x] Verify real pairing, command delivery/results and revoked access with a simulated desktop; document setup. Real Windows/Discord and phone microphone remain unverified.
