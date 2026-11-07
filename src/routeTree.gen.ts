@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as MainframeRouteImport } from './routes/mainframe'
 import { Route as MateRouteImport } from './routes/mate'
+import { Route as PairingRouteImport } from './routes/pairing'
 import { Route as RemoteRouteImport } from './routes/remote'
 import { Route as TrayMenuRouteImport } from './routes/tray-menu'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
@@ -30,6 +31,11 @@ const MainframeRoute = MainframeRouteImport.update({
 const MateRoute = MateRouteImport.update({
   id: '/mate',
   path: '/mate',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PairingRoute = PairingRouteImport.update({
+  id: '/pairing',
+  path: '/pairing',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RemoteRoute = RemoteRouteImport.update({
@@ -57,6 +63,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/mainframe': typeof MainframeRoute
   '/mate': typeof MateRoute
+  '/pairing': typeof PairingRoute
   '/remote': typeof RemoteRoute
   '/tray-menu': typeof TrayMenuRoute
   '/api/chat': typeof ApiChatRoute
@@ -66,6 +73,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/mainframe': typeof MainframeRoute
   '/mate': typeof MateRoute
+  '/pairing': typeof PairingRoute
   '/remote': typeof RemoteRoute
   '/tray-menu': typeof TrayMenuRoute
   '/api/chat': typeof ApiChatRoute
@@ -76,6 +84,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/mainframe': typeof MainframeRoute
   '/mate': typeof MateRoute
+  '/pairing': typeof PairingRoute
   '/remote': typeof RemoteRoute
   '/tray-menu': typeof TrayMenuRoute
   '/api/chat': typeof ApiChatRoute
@@ -87,6 +96,7 @@ export interface FileRouteTypes {
     | '/'
     | '/mainframe'
     | '/mate'
+    | '/pairing'
     | '/remote'
     | '/tray-menu'
     | '/api/chat'
@@ -96,6 +106,7 @@ export interface FileRouteTypes {
     | '/'
     | '/mainframe'
     | '/mate'
+    | '/pairing'
     | '/remote'
     | '/tray-menu'
     | '/api/chat'
@@ -105,6 +116,7 @@ export interface FileRouteTypes {
     | '/'
     | '/mainframe'
     | '/mate'
+    | '/pairing'
     | '/remote'
     | '/tray-menu'
     | '/api/chat'
@@ -115,6 +127,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   MainframeRoute: typeof MainframeRoute
   MateRoute: typeof MateRoute
+  PairingRoute: typeof PairingRoute
   RemoteRoute: typeof RemoteRoute
   TrayMenuRoute: typeof TrayMenuRoute
   ApiChatRoute: typeof ApiChatRoute
@@ -142,6 +155,13 @@ declare module '@tanstack/react-router' {
       path: '/mate'
       fullPath: '/mate'
       preLoaderRoute: typeof MateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pairing': {
+      id: '/pairing'
+      path: '/pairing'
+      fullPath: '/pairing'
+      preLoaderRoute: typeof PairingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/remote': {
@@ -179,6 +199,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   MainframeRoute: MainframeRoute,
   MateRoute: MateRoute,
+  PairingRoute: PairingRoute,
   RemoteRoute: RemoteRoute,
   TrayMenuRoute: TrayMenuRoute,
   ApiChatRoute: ApiChatRoute,
