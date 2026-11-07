@@ -3,7 +3,7 @@ const path = require("path");
 const fs = require("fs");
 const os = require("os");
 const { spawn } = require("child_process");
-const { app, BrowserWindow, Tray, nativeImage, screen, session, ipcMain } = require("electron");
+const { app, BrowserWindow, Tray, nativeImage, screen, session, ipcMain, shell } = require("electron");
 
 const BASE = process.env.JARVIS_URL || "https://pocket-jarvis-desktop-mate.lovable.app";
 const ICON = path.join(__dirname, process.platform === "win32" ? "icon.ico" : "icon.png");
@@ -12,7 +12,84 @@ const W = 380, H = 520;
 let mate, menu, mainframe, tray;
 
 app.setAppUserModelId("Jarvis.DesktopMate");
-if (!app.requestSingleInstanceLock()) app.quit();
+
+// ---------- Install / uninstall (custom screens, per-user, no admin) ----------
+const IS_WIN = process.platform === "win32";
+const INSTALL_DIR = path.join(process.env.LOCALAPPDATA || os.homedir(), "Programs", "Jarvis");
+const UNINST_KEY = "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\JarvisDesktopMate";
+const SRC_DIR = path.dirname(process.execPath);
+const INSTALLED_EXE = path.join(INSTALL_DIR, path.basename(process.execPath));
+const shortcutPaths = () => ({
+  desktop: path.join(app.getPath("desktop"), "Jarvis.lnk"),
+  start: path.join(process.env.APPDATA || "", "Microsoft", "Windows", "Start Menu", "Programs", "Jarvis.lnk"),
+});
+const MODE = process.argv.includes("--uninstall") ? "uninstall"
+  : IS_WIN && app.isPackaged && !process.argv.includes("--portable") && !SRC_DIR.toLowerCase().startsWith(INSTALL_DIR.toLowerCase()) ? "install"
+  : "run";
+let setupWin;
+
+function openSetup(mode) {
+  if (setupWin && !setupWin.isDestroyed()) { setupWin.focus(); return; }
+  setupWin = new BrowserWindow({
+    width: 640, height: 400, frame: false, transparent: true, resizable: false, backgroundColor: "#00000000",
+    title: mode === "install" ? "Install Jarvis" : "Remove Jarvis", icon: ICON, webPreferences: webPrefs,
+  });
+  setupWin.loadFile(path.join(__dirname, "setup.html"), { query: { mode } });
+  setupWin.on("closed", () => { setupWin = null; if (MODE !== "run") app.quit(); });
+}
+
+const reg = (args) => new Promise((res) => spawn("reg", args, { stdio: "ignore", windowsHide: true }).on("exit", res).on("error", res));
+
+ipcMain.on("setup-close", () => setupWin && setupWin.close());
+ipcMain.on("setup-min", () => setupWin && setupWin.minimize());
+ipcMain.handle("setup-run", async (e, mode, opts = {}) => {
+  const step = (text, pct) => e.sender.send("setup-progress", { text, pct });
+  try {
+    if (mode === "install") {
+      step("Copying Jarvis's systems…", 0.1);
+      await fs.promises.rm(INSTALL_DIR, { recursive: true, force: true }).catch(() => {});
+      await fs.promises.cp(SRC_DIR, INSTALL_DIR, { recursive: true, force: true });
+      step("Creating shortcuts…", 0.75);
+      const icon = path.join(INSTALL_DIR, path.relative(SRC_DIR, path.join(__dirname, "icon.ico")));
+      const link = { target: INSTALLED_EXE, cwd: INSTALL_DIR, icon, iconIndex: 0, appUserModelId: "Jarvis.DesktopMate", description: "Jarvis Desktop Mate" };
+      const sc = shortcutPaths();
+      fs.mkdirSync(path.dirname(sc.start), { recursive: true });
+      shell.writeShortcutLink(sc.start, link);
+      if (opts.desktop) shell.writeShortcutLink(sc.desktop, link);
+      step("Registering with Windows…", 0.9);
+      const add = (name, type, data) => reg(["add", UNINST_KEY, "/v", name, "/t", type, "/d", data, "/f"]);
+      await add("DisplayName", "REG_SZ", "Jarvis Desktop Mate");
+      await add("DisplayIcon", "REG_SZ", icon);
+      await add("Publisher", "REG_SZ", "Jarvis");
+      await add("DisplayVersion", "REG_SZ", app.getVersion());
+      await add("InstallLocation", "REG_SZ", INSTALL_DIR);
+      await add("UninstallString", "REG_SZ", `"${INSTALLED_EXE}" --uninstall`);
+      await add("NoModify", "REG_DWORD", "1");
+      await add("NoRepair", "REG_DWORD", "1");
+      app.setLoginItemSettings({ openAtLogin: !!opts.startup, path: INSTALLED_EXE });
+      step("Online. Launching Jarvis…", 1);
+      spawn(INSTALLED_EXE, [], { detached: true, stdio: "ignore", cwd: INSTALL_DIR }).unref();
+      setTimeout(() => app.quit(), 900);
+      return { ok: true };
+    }
+    step("Removing shortcuts…", 0.3);
+    const sc = shortcutPaths();
+    for (const p of [sc.desktop, sc.start]) fs.rmSync(p, { force: true });
+    app.setLoginItemSettings({ openAtLogin: false, path: INSTALLED_EXE });
+    step("Unregistering…", 0.6);
+    await reg(["delete", UNINST_KEY, "/f"]);
+    step("Goodbye, sir.", 1);
+    // Files can't be deleted while Jarvis is running, so a tiny helper waits for us to exit.
+    spawn("cmd.exe", ["/c", `ping 127.0.0.1 -n 3 >nul & rmdir /s /q "${INSTALL_DIR}"`], { detached: true, stdio: "ignore", windowsHide: true, cwd: os.tmpdir() }).unref();
+    setTimeout(() => app.quit(), 900);
+    return { ok: true };
+  } catch (err) {
+    const msg = String((err && err.message) || err);
+    return { error: /EBUSY|EPERM/.test(msg) ? "Jarvis is still running from the install folder. Quit him from the tray and try again." : msg };
+  }
+});
+
+if (MODE === "run" && !app.requestSingleInstanceLock()) app.quit();
 
 const webPrefs = { contextIsolation: true, nodeIntegration: false, preload: path.join(__dirname, "preload.cjs") };
 const CLEAR_CSS = "html,body,#root,body>div{background:transparent!important}html,body{overflow:hidden!important}::-webkit-scrollbar{display:none}";
@@ -63,8 +140,9 @@ function showMenu() {
 
 function openMainframe() {
   if (mainframe && !mainframe.isDestroyed()) { mainframe.show(); mainframe.focus(); return; }
+  const wa = screen.getPrimaryDisplay().workArea;
   mainframe = new BrowserWindow({
-    width: 480, height: 760, frame: false, transparent: true, resizable: false,
+    width: 480, height: Math.min(1040, wa.height - 20), frame: false, transparent: true, resizable: false,
     backgroundColor: "#00000000", title: "Jarvis Mainframe", icon: ICON, webPreferences: webPrefs,
   });
   mainframe.webContents.on("did-finish-load", () => mainframe.webContents.insertCSS(CLEAR_CSS));
@@ -105,6 +183,7 @@ ipcMain.on("cmd", (e, name, arg) => {
     case "move": return moveTo(arg);
     case "reload": return mate.reload();
     case "quit": return app.quit();
+    case "uninstall": return openSetup("uninstall");
     case "mf-close": return sender && sender.close();
     case "mf-min": return sender && sender.minimize();
     default:
@@ -201,9 +280,103 @@ ipcMain.handle("local-setup", async (e, model) => {
   }
 });
 
+// ---------- Skills: apps, Spotify, Discord, voice into VB-Cable ----------
+ipcMain.on("open-url", (_e, url) => { if (/^https:\/\//.test(url)) shell.openExternal(url); });
+
+let appCache = null;
+function scanApps() {
+  if (appCache) return appCache;
+  const roots = [
+    path.join(process.env.ProgramData || "C:\\ProgramData", "Microsoft", "Windows", "Start Menu", "Programs"),
+    path.join(process.env.APPDATA || "", "Microsoft", "Windows", "Start Menu", "Programs"),
+    app.getPath("desktop"),
+  ];
+  const found = new Map();
+  const walk = (dir, depth) => {
+    let entries = [];
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+    for (const ent of entries) {
+      const p = path.join(dir, ent.name);
+      if (ent.isDirectory() && depth < 3) walk(p, depth + 1);
+      else if (/\.(lnk|url)$/i.test(ent.name)) {
+        const name = ent.name.replace(/\.(lnk|url)$/i, "");
+        if (!/uninstall|readme|help|documentation|website/i.test(name) && !found.has(name.toLowerCase())) found.set(name.toLowerCase(), { name, path: p });
+      }
+    }
+  };
+  roots.forEach((r) => walk(r, 0));
+  appCache = [...found.values()].sort((a, b) => a.name.localeCompare(b.name));
+  setTimeout(() => (appCache = null), 60000);
+  return appCache;
+}
+const URI_APPS = { spotify: "spotify:", discord: "discord://", steam: "steam://open/main", settings: "ms-settings:", "microsoft store": "ms-windows-store:" };
+
+ipcMain.handle("apps-list", () => scanApps().map((a) => a.name));
+ipcMain.handle("open-app", async (_e, query) => {
+  const q = String(query || "").toLowerCase().trim();
+  if (!q) return { error: "no app" };
+  const apps = scanApps();
+  const hit = apps.find((a) => a.name.toLowerCase() === q) || apps.find((a) => a.name.toLowerCase().startsWith(q)) || apps.find((a) => a.name.toLowerCase().includes(q))
+    || apps.find((a) => q.split(/\s+/).every((w) => a.name.toLowerCase().includes(w)));
+  if (hit) { const err = await shell.openPath(hit.path); return err ? { error: err } : { ok: true, name: hit.name }; }
+  if (URI_APPS[q]) { await shell.openExternal(URI_APPS[q]).catch(() => {}); return { ok: true, name: query }; }
+  return { error: "not found" };
+});
+
+const ps = (script, env = {}) => new Promise((res) => {
+  const p = spawn("powershell.exe", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script], { windowsHide: true, env: { ...process.env, ...env } });
+  let out = "";
+  p.stdout.on("data", (d) => (out += d));
+  p.on("exit", () => res(out.trim()));
+  p.on("error", () => res(""));
+});
+
+// Opens Spotify, brings it forward on the main screen, visibly types the search, then plays the top result.
+ipcMain.handle("spotify-play", async (_e, query) => {
+  if (!IS_WIN) return { error: "Windows only" };
+  await shell.openExternal("spotify:").catch(() => {});
+  const script = `
+$w = New-Object -ComObject WScript.Shell
+Add-Type 'using System;using System.Runtime.InteropServices;public class J{[DllImport("user32.dll")]public static extern bool ShowWindow(IntPtr h,int c);[DllImport("user32.dll")]public static extern bool SetForegroundWindow(IntPtr h);}'
+$p = $null
+for ($i = 0; $i -lt 30 -and -not $p; $i++) { Start-Sleep -Milliseconds 500; $p = Get-Process Spotify -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1 }
+if (-not $p) { 'nospotify'; exit }
+[J]::ShowWindow($p.MainWindowHandle, 3) | Out-Null
+[J]::SetForegroundWindow($p.MainWindowHandle) | Out-Null
+$null = $w.AppActivate($p.Id)
+Start-Sleep -Milliseconds 1200
+$w.SendKeys('^k'); Start-Sleep -Milliseconds 700
+foreach ($c in $env:JQ.ToCharArray()) { $k = [string]$c; if ('+^%~(){}[]'.Contains($k)) { $k = '{' + $k + '}' }; $w.SendKeys($k); Start-Sleep -Milliseconds 75 }
+Start-Sleep -Milliseconds 1800
+$w.SendKeys('+{ENTER}')
+'ok'`;
+  const r = await ps(script, { JQ: String(query).slice(0, 120) });
+  return r.endsWith("ok") ? { ok: true } : { error: r === "nospotify" ? "Spotify didn't open. Is it installed?" : "Couldn't control Spotify." };
+});
+
+ipcMain.handle("discord-join", async (_e, link) => {
+  const m = String(link || "").match(/channels\/(\d+|@me)\/(\d+)/);
+  if (!m) return { error: "Bad Discord link" };
+  await shell.openExternal(`discord://-/channels/${m[1]}/${m[2]}`).catch(() => {});
+  return { ok: true };
+});
+
+// Windows' own voice rendered to a WAV so Jarvis can play it into any output (e.g. VB-Cable).
+ipcMain.handle("voice-wav", async (_e, text) => {
+  if (!IS_WIN) return { error: "Windows only" };
+  const file = path.join(os.tmpdir(), `jarvis-say-${Date.now()}.wav`);
+  await ps(`Add-Type -AssemblyName System.Speech
+$s = New-Object System.Speech.Synthesis.SpeechSynthesizer
+$v = $s.GetInstalledVoices() | Where-Object { $_.VoiceInfo.Culture.Name -eq 'en-GB' } | Select-Object -First 1
+if ($v) { $s.SelectVoice($v.VoiceInfo.Name) }
+$s.SetOutputToWaveFile($env:JF); $s.Speak($env:JT); $s.Dispose()`, { JF: file, JT: String(text).slice(0, 600) });
+  try { const b = fs.readFileSync(file); fs.rmSync(file, { force: true }); return { wav: b.toString("base64") }; } catch { return { error: "voice failed" }; }
+});
+
 app.on("second-instance", () => mate && mate.show());
 
 app.whenReady().then(() => {
+  if (MODE !== "run") return openSetup(MODE);
   session.defaultSession.setPermissionRequestHandler((_wc, perm, cb) => cb(perm === "media"));
   session.defaultSession.setPermissionCheckHandler((_wc, perm) => perm === "media");
   createMate();

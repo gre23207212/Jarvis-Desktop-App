@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { AudioLines, Pencil } from "lucide-react";
 import reactor from "@/assets/jarvis-reactor.png.asset.json";
-import { bridge, liveContext, loadSettings, parseWake, saveSettings, SIZES, SYSTEM_PROMPT, type Settings } from "@/lib/jarvis";
+import { bridge, liveContext, loadSettings, parseAction, parseWake, saveSettings, SIZES, SYSTEM_PROMPT, type Action, type Settings } from "@/lib/jarvis";
 
 export const Route = createFileRoute("/mate")({
   head: () => ({
@@ -78,15 +78,15 @@ function Mate() {
   };
 
   // ---------- voice out ----------
-  const speak = (text: string) => {
+  const speak = (text: string, then?: () => void) => {
     const s = settingsRef.current;
-    if (!s?.voiceOn || !("speechSynthesis" in window)) { setM("idle"); return; }
+    if (!s?.voiceOn || !("speechSynthesis" in window)) { setM("idle"); then?.(); return; }
     const u = new SpeechSynthesisUtterance(text);
     const v = speechSynthesis.getVoices();
     u.voice = v.find((x) => x.name === s.voiceName) || v.find((x) => /en-GB/i.test(x.lang) && /daniel|george|ryan|thomas|male/i.test(x.name)) || v.find((x) => /en-GB/i.test(x.lang)) || null;
     u.pitch = 0.9;
     u.onstart = () => setM("speaking");
-    u.onend = u.onerror = () => { setM("idle"); hideTimer.current = window.setTimeout(() => { if (modeRef.current === "idle") { setReply(""); setYou(""); } }, 8000); };
+    u.onend = u.onerror = () => { setM("idle"); if (then) { then(); return; } hideTimer.current = window.setTimeout(() => { if (modeRef.current === "idle") { setReply(""); setYou(""); } }, 8000); };
     speechSynthesis.cancel();
     speechSynthesis.speak(u);
   };
@@ -101,6 +101,14 @@ function Mate() {
     setM("thinking");
     const s = settingsRef.current ?? loadSettings();
     let full = "";
+    const act = parseAction(t);
+    if (act && bridge()?.openApp) {
+      const said = await runAction(act, s).catch(() => "Something went wrong doing that, sir.");
+      history.current.push({ role: "assistant", content: said });
+      setReply(said);
+      speak(said);
+      return;
+    }
     try {
       const context = await liveContext(t, history.current);
       const system = `${SYSTEM_PROMPT}\n\n${context}`;
@@ -156,6 +164,51 @@ function Mate() {
     }
   };
 
+  // ---------- skills on the PC ----------
+  const sayIntoCable = async (text: string) => {
+    const b = bridge();
+    const devs = await navigator.mediaDevices.enumerateDevices();
+    const cable = devs.find((d) => d.kind === "audiooutput" && /cable input/i.test(d.label));
+    if (!cable) return false;
+    const r = await b?.voiceWav?.(text);
+    if (!r?.wav) return false;
+    const src = `data:audio/wav;base64,${r.wav}`;
+    const toCall = new Audio(src) as HTMLAudioElement & { setSinkId?: (id: string) => Promise<void> };
+    await toCall.setSinkId?.(cable.deviceId);
+    const local = new Audio(src); // so you hear it too
+    setM("speaking");
+    await Promise.all([toCall.play(), local.play()]).catch(() => {});
+    await new Promise((res) => { toCall.onended = res; setTimeout(res, 20000); });
+    setM("idle");
+    return true;
+  };
+
+  const runAction = async (act: Action, s: Settings): Promise<string> => {
+    const b = bridge()!;
+    if (act.kind === "open") {
+      const r = await b.openApp!(act.app);
+      return r.ok ? `Opening ${r.name}, sir.` : `I couldn't find ${act.app} on this PC, sir.`;
+    }
+    if (act.kind === "apps") {
+      const list = (await b.listApps?.()) ?? [];
+      return list.length ? `You have ${list.length} apps, sir, including ${list.slice(0, 12).join(", ")}. Just say "open" and the name.` : "I couldn't read your apps, sir.";
+    }
+    if (act.kind === "spotify") {
+      setReply(`Searching Spotify for "${act.query}"…`);
+      const r = await b.spotifyPlay!(act.query);
+      return r.ok ? `Playing ${act.query} on Spotify, sir.` : `${r.error} sir.`;
+    }
+    // Discord
+    if (!s.discordLink) return "Paste your Discord call link into the Mainframe under Skills first, sir.";
+    const r = await b.discordJoin!(s.discordLink);
+    if (r.error) return "That Discord link doesn't look right, sir. Copy the voice channel's link again in the Mainframe.";
+    if (!act.message) return "Joining your Discord call, sir.";
+    setReply("Joining your Discord call, sir…");
+    await new Promise((res) => setTimeout(res, 5000));
+    const ok = await sayIntoCable(act.message);
+    return ok ? `I've told them: "${act.message}"` : "I joined, sir, but I need VB-Cable installed to speak in the call. There's a button in the Mainframe.";
+  };
+
   // ---------- voice in: one mic loop for both "Hey Jarvis" and click-to-talk ----------
   const micReady = useRef(false);
   const startMic = async () => {
@@ -180,8 +233,8 @@ function Mate() {
         const busy = modeRef.current === "speaking" || modeRef.current === "thinking";
         const active = want.current !== "none" && !busy;
         if (!rec && active) {
-          loud = rms > 9 ? loud + 1 : 0;
-          if (loud > 3) {
+          loud = rms > 11 ? loud + 1 : 0;
+          if (loud > 4) {
             chunks = [];
             rec = new MediaRecorder(stream, { mimeType: "audio/webm" });
             rec.ondataavailable = (e) => chunks.push(e.data);
@@ -215,10 +268,13 @@ function Mate() {
       if (text) send(stripped ?? text);
       return;
     }
+    // Only "Hey Jarvis" wakes him; anything else he hears is ignored and never shown.
     const rest = parseWake(text);
-    if (rest === null) return;
-    if (rest.length > 2) send(rest);
-    else listenNow("Yes, sir?");
+    if (rest === null || want.current !== "wake") return;
+    if (rest.split(/\s+/).length >= 3) { send(rest); return; }
+    want.current = "none";
+    setYou(""); setReply("Yes, sir?");
+    speak("Yes, sir?", () => listenNow("Yes, sir? I'm listening…"));
   };
 
   const listenTimer = useRef<number>(0);
@@ -302,11 +358,7 @@ function Mate() {
         )}
 
         <div data-hit onMouseEnter={enter} onMouseLeave={leave} className="flex flex-col items-center gap-2">
-          <div className="relative mb-4 h-32 w-32">
-            <button aria-label="Type to Jarvis" onClick={() => { setTyping(true); setReply(""); setYou(""); }}
-              className={`hud-node absolute -bottom-1 -left-7 z-10 transition-all duration-200 ${hover || typing ? "opacity-100" : "pointer-events-none translate-x-3 -translate-y-3 opacity-0"}`}>
-              <Pencil size={13} />
-            </button>
+          <div className="relative h-32 w-32">
             <button
               onPointerDown={onDown}
               onPointerMove={onDragMove}
@@ -317,9 +369,16 @@ function Mate() {
               <img src={reactor.url} alt="" draggable={false}
                 className={`pointer-events-none absolute inset-0 h-full w-full ${busy ? "animate-spin-fast" : "animate-spin-slow"} ${mode === "listening" || mode === "speaking" ? "animate-core-fast" : ""}`} />
             </button>
+          </div>
+          <div className={`jarvis-pill mb-1 flex items-center transition-all duration-200 ${hover || typing ? "opacity-100" : "pointer-events-none -translate-y-2 opacity-0"}`}>
+            <button aria-label="Type to Jarvis" onClick={() => { setTyping(true); setReply(""); setYou(""); }}
+              className={`px-4 py-2 hover:text-primary ${typing ? "text-primary" : ""}`}>
+              <Pencil size={15} />
+            </button>
+            <span className="h-4 w-px bg-primary/40" />
             <button aria-label="Talk to Jarvis" onClick={() => (mode === "listening" ? (endListen(), setReply("")) : listenNow())}
-              className={`hud-node absolute -bottom-1 -right-7 z-10 transition-all duration-200 ${mode === "listening" ? "text-primary" : ""} ${hover || typing ? "opacity-100" : "pointer-events-none -translate-x-3 -translate-y-3 opacity-0"}`}>
-              <AudioLines size={13} />
+              className={`px-4 py-2 hover:text-primary ${mode === "listening" ? "text-primary" : ""}`}>
+              <AudioLines size={15} />
             </button>
           </div>
         </div>

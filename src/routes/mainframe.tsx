@@ -46,6 +46,8 @@ function Mainframe() {
   const [status, setStatus] = useState("");
   const [local, setLocal] = useState<{ running: boolean; hasModel: boolean } | null>(null);
   const [dl, setDl] = useState<{ text: string; pct: number | null } | null>(null);
+  const [cable, setCable] = useState(false);
+  const [apps, setApps] = useState<number | null>(null);
 
   useEffect(() => {
     document.documentElement.style.background = "transparent";
@@ -57,7 +59,11 @@ function Mainframe() {
     const s0 = loadSettings();
     bridge()?.localStatus?.(s0.localModel).then(setLocal);
     const off = bridge()?.onCmd((n, a) => { if (n === "setup-progress") setDl(a as { text: string; pct: number | null }); });
-    navigator.mediaDevices?.enumerateDevices().then((d) => setMics(d.filter((x) => x.kind === "audioinput"))).catch(() => {});
+    navigator.mediaDevices?.enumerateDevices().then((d) => {
+      setMics(d.filter((x) => x.kind === "audioinput"));
+      setCable(d.some((x) => x.kind === "audiooutput" && /cable input/i.test(x.label)));
+    }).catch(() => {});
+    bridge()?.listApps?.().then((a) => setApps(a.length)).catch(() => {});
     return off;
   }, []);
 
@@ -186,6 +192,22 @@ function Mainframe() {
           </div>
         </Section>
 
+        <Section title="SKILLS" right={<span className="font-mono text-[10px] text-term-dim">Things Jarvis can do</span>}>
+          <ul className="mb-3 space-y-1 font-mono text-[11px] text-term-dim">
+            <li><span className="text-primary">◆</span> <span className="text-term-text">"Open Steam"</span> — opens any installed app{apps != null && ` (${apps} found)`}</li>
+            <li><span className="text-primary">◆</span> <span className="text-term-text">"Play Blinding Lights by The Weeknd"</span> — types it into Spotify and plays it</li>
+            <li><span className="text-primary">◆</span> <span className="text-term-text">"Join Discord and tell them I'll be 5 minutes"</span></li>
+          </ul>
+          <input className={field} value={s.discordLink} onChange={(e) => set({ discordLink: e.target.value.trim() })} placeholder="Discord voice channel link (right-click channel → Copy Link)" aria-label="Discord call link" />
+          <div className="mt-2 flex items-center justify-between gap-2">
+            <p className="font-mono text-[11px] text-term-dim">
+              {cable ? <span className="text-primary">◆ VB-Cable found.</span> : "VB-Cable not found — needed to speak in calls."}
+            </p>
+            {!cable && <button className={btn} onClick={() => b?.openUrl?.("https://vb-audio.com/Cable/")}>GET VB-CABLE</button>}
+          </div>
+          <p className="mt-1 font-mono text-[10px] text-term-dim">In Discord, set Voice → Input Device to "CABLE Output" so the call hears Jarvis.</p>
+        </Section>
+
         <Section title="JARVIS" right={<span className="font-mono text-[10px] text-term-dim">v{VERSION}</span>}>
           <div className="grid grid-cols-3 gap-2">
             <button className={btn} onClick={() => b?.cmd("toggle")}>HIDE / SHOW</button>
@@ -193,6 +215,7 @@ function Mainframe() {
             <button className={btn} onClick={() => b?.cmd("reload")}>REBOOT</button>
           </div>
           <button className="mt-3 w-full border border-destructive/60 py-2 font-hud text-xs tracking-wider text-destructive hover:bg-destructive/10" onClick={() => b?.cmd("quit")}>SHUT DOWN JARVIS</button>
+          <button className="mt-2 w-full py-1 font-mono text-[10px] text-term-dim hover:text-destructive" onClick={() => b?.cmd("uninstall")}>Uninstall Jarvis…</button>
         </Section>
       </div>
     </div>

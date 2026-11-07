@@ -14,6 +14,7 @@ export type Settings = {
   micId: string;
   wakeWord: boolean;
   size: Size;
+  discordLink: string;
 };
 
 export const DEFAULTS: Settings = {
@@ -28,10 +29,11 @@ export const DEFAULTS: Settings = {
   micId: "",
   wakeWord: true,
   size: "medium",
+  discordLink: "",
 };
 
 export const SIZES: Record<Size, number> = { small: 0.7, medium: 1, large: 1.3, huge: 1.6 };
-export const VERSION = "1.2.0";
+export const VERSION = "1.3.0";
 const KEY = "jarvis-settings-v2";
 
 export function loadSettings(): Settings {
@@ -58,6 +60,12 @@ export type Bridge = {
   onCmd: (fn: (name: string, arg?: unknown) => void) => () => void;
   localSetup?: (model: string) => Promise<{ ok?: boolean; error?: string }>;
   localStatus?: (model: string) => Promise<{ running: boolean; hasModel: boolean }>;
+  listApps?: () => Promise<string[]>;
+  openApp?: (name: string) => Promise<{ ok?: boolean; name?: string; error?: string }>;
+  spotifyPlay?: (query: string) => Promise<{ ok?: boolean; error?: string }>;
+  discordJoin?: (link: string) => Promise<{ ok?: boolean; error?: string }>;
+  voiceWav?: (text: string) => Promise<{ wav?: string; error?: string }>;
+  openUrl?: (url: string) => void;
 };
 
 export function bridge(): Bridge | undefined {
@@ -68,11 +76,36 @@ export const SYSTEM_PROMPT = `You are J.A.R.V.I.S. — Just A Rather Very Intell
 Address the user as "sir". Be dry, understated and helpful. Keep replies short: usually 1-3 sentences, since they are read aloud. Plain text, no markdown.
 When a "LIVE DATA" section is provided, it is real, current information fetched just now — use it confidently (weather, time, facts) and never claim you cannot access it.`;
 
-/** Strips the wake phrase. Returns null when "Jarvis" wasn't said. */
+/** Strips the wake phrase. Returns null unless the clip STARTS with "(Hey) Jarvis". */
 export function parseWake(text: string): string | null {
-  const m = text.match(/\b(?:hey|hi|ok|okay|yo)?[\s,]*jarvis\b[\s,.!?]*/i);
+  const m = text.match(/^[\s"'.,!?-]*(?:(?:hey|hi|ok|okay|yo|a|hay)[\s,.!]+)?jarvis\b[\s,.!?]*/i);
   if (!m) return null;
-  return text.slice((m.index ?? 0) + m[0].length).trim();
+  return text.slice(m[0].length).trim();
+}
+
+export type Action =
+  | { kind: "open"; app: string }
+  | { kind: "apps" }
+  | { kind: "spotify"; query: string }
+  | { kind: "discord"; message: string };
+
+/** Recognises things Jarvis can DO on the PC. Returns null for normal chat. */
+export function parseAction(text: string): Action | null {
+  const s = text.trim().replace(/[.!?]+$/, "");
+  const polite = "(?:(?:can|could|would) you |please |jarvis,? )*";
+  let m = s.match(/\bjoin\b.*?\bdiscord\b.*?\b(?:tell|say|let)\b(?:\s+(?:them|everyone|the call|the guys))?(?:\s+know)?(?:\s+that)?\s+(.+)$/i);
+  if (m) return { kind: "discord", message: m[1].trim() };
+  if (/\bjoin\b.*\bdiscord\b/i.test(s)) return { kind: "discord", message: "" };
+  m = s.match(new RegExp(`^${polite}(?:play|put on)\\s+(.+?)(?:\\s+on spotify)?$`, "i"))
+    || s.match(/\bi(?: want|'d like| would like) to (?:play|listen to|hear)\s+(.+?)(?:\s+on spotify)?$/i);
+  if (m) {
+    const query = m[1].replace(/^(?:the song|song|some)\s+/i, "").replace(/["“”‘’']/g, "").replace(/\s+by\s+/i, " ").trim();
+    if (query) return { kind: "spotify", query };
+  }
+  if (/\b(?:what|which|list|show)\b.*\b(?:apps|programs|applications|games)\b/i.test(s)) return { kind: "apps" };
+  m = s.match(new RegExp(`^${polite}(?:open|launch|start|run|load)\\s+(?:up\\s+)?(?:the\\s+|my\\s+)?(.+?)(?:\\s+(?:app|application|program))?(?:\\s+for me)?$`, "i"));
+  if (m) return { kind: "open", app: m[1].trim() };
+  return null;
 }
 
 // ---------- live knowledge: weather, time, facts (free, no keys) ----------

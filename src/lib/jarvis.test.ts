@@ -11,6 +11,25 @@ describe("parseWake", () => {
   it("ignores speech without Jarvis", () => {
     expect(parseWake("hey there what's the time")).toBeNull();
   });
+  it("ignores normal talk that only mentions Jarvis mid-sentence", () => {
+    expect(parseWake("I was telling my mate about Jarvis yesterday")).toBeNull();
+  });
+});
+
+import { parseAction } from "./jarvis";
+describe("parseAction", () => {
+  it("plays a song on Spotify", () => {
+    expect(parseAction("I want to play Blinding Lights by The Weeknd")).toEqual({ kind: "spotify", query: "Blinding Lights The Weeknd" });
+  });
+  it("joins Discord and passes on a message", () => {
+    expect(parseAction("Join this Discord call and tell them I'll be five minutes")).toEqual({ kind: "discord", message: "I'll be five minutes" });
+  });
+  it("opens an app", () => {
+    expect(parseAction("Can you open Steam")).toEqual({ kind: "open", app: "Steam" });
+  });
+  it("leaves normal questions to the brain", () => {
+    expect(parseAction("what's the weather in Blackburn")).toBeNull();
+  });
 });
 
 import { extractPlace } from "./jarvis";

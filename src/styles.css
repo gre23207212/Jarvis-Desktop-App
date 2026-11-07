@@ -192,7 +192,8 @@
   background: var(--term-bg);
   border: 1px solid oklch(0.82 0.14 210 / 45%);
   border-radius: 999px;
-  box-shadow: 0 0 0 1px oklch(0.1 0.02 245 / 60%);
+  color: var(--term-text);
+  box-shadow: 0 0 0 1px oklch(0.1 0.02 245 / 60%), 0 0 14px oklch(0.75 0.15 215 / 35%);
 }
 /* Dark rim + glow so Jarvis reads on white AND dark screens */
 .jarvis-orb img { filter: drop-shadow(0 0 1.5px oklch(0.12 0.03 245)) drop-shadow(0 0 1.5px oklch(0.12 0.03 245)) drop-shadow(0 0 8px oklch(0.75 0.15 215 / 70%)); }
