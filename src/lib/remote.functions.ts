@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { remoteInput, remoteOnline, type RemoteResult } from "./remote-schema";
+import { remoteInput, remoteOnline, createPairingCode, PAIRING_TTL_MS, type RemoteResult } from "./remote-schema";
 import { parseAction, parseWake } from "./jarvis";
 
 /** Capability tokens authorize one device only; all database rows are private to these handlers. */
@@ -7,12 +7,23 @@ export const remoteRequest = createServerFn({ method: "POST" })
   .inputValidator((input) => remoteInput.parse(input))
   .handler(async ({ data }): Promise<RemoteResult> => {
     const hash = async (token: string) => Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token))), (byte) => byte.toString(16).padStart(2, "0")).join("");
-    const digest = await hash(data.token);
     const { supabaseAdmin: db } = await import("@/integrations/supabase/client.server");
+    if (data.op === "link") {
+      const phoneToken = Array.from(crypto.getRandomValues(new Uint8Array(32)), (byte) => byte.toString(16).padStart(2, "0")).join("");
+      // Matching and consumption are one atomic update: only one phone wins.
+      const { data: linked, error } = await db.from("jarvis_remote_devices")
+        .update({ phone_hash: await hash(phoneToken), pairing_hash: null, pairing_expires_at: null })
+        .eq("pairing_hash", await hash(data.code)).eq("revoked", false)
+        .gt("pairing_expires_at", new Date().toISOString()).select("id").maybeSingle();
+      return error || !linked ? { error: "That code is incorrect, expired, or already used. Generate a new code on your PC." } : { phoneToken };
+    }
+    const digest = await hash(data.token);
     if (data.op === "pair") {
       const phoneToken = Array.from(crypto.getRandomValues(new Uint8Array(32)), (byte) => byte.toString(16).padStart(2, "0")).join("");
-      const { error } = await db.from("jarvis_remote_devices").insert({ desktop_hash: digest, phone_hash: await hash(phoneToken), name: data.name });
-      return error ? { error: "Could not pair this PC. Try again." } : { phoneToken };
+      const code = createPairingCode();
+      const expiresAt = new Date(Date.now() + PAIRING_TTL_MS).toISOString();
+      const { error } = await db.from("jarvis_remote_devices").insert({ desktop_hash: digest, phone_hash: await hash(phoneToken), name: data.name, pairing_hash: await hash(code), pairing_expires_at: expiresAt });
+      return error ? { error: "Could not pair this PC. Try again." } : { pairingCode: code, expiresAt };
     }
     const desktop = ["poll", "finish", "revoke"].includes(data.op);
     const { data: device, error } = await db.from("jarvis_remote_devices").select("id,channels,last_seen").eq(desktop ? "desktop_hash" : "phone_hash", digest).eq("revoked", false).maybeSingle();

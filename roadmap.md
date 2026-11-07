@@ -1,4 +1,5 @@
 # Jarvis roadmap
+- [x] Replace private-link pairing with a phone entry page and an expiring, single-use code displayed on the PC. Verified real pairing, invalid/reused-code rejection, command delivery/results and mobile layout with a simulated desktop; actual Discord playback remains unverified.
 - [x] Explain phone control and add launch welcome, local date/time, opt-in public news, remembered topic and friendly closing. Browser flow verified with real public headlines and simulated desktop/speech; Windows launch and audible microphone interaction remain unverified.
 - [x] Remove visible platform branding without breaking hosting
 - [x] Persist Jarvis memory and conversation context; add memory management

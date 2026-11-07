@@ -5,6 +5,7 @@ import { Mic, Send, Square, Unplug, Monitor } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { remoteRequest } from "@/lib/remote.functions";
 import type { RemoteResult } from "@/lib/remote-schema";
+import { pairingCode } from "@/lib/remote-schema";
 import reactor from "@/assets/jarvis-reactor.png.asset.json";
 
 export const Route = createFileRoute("/remote")({
@@ -60,6 +61,19 @@ function PhoneRemote() {
     } catch { setNotice("Could not send. Try again."); }
     finally { setBusy(false); }
   };
+  const linkPhone = async () => {
+    setNotice("");
+    const parsed = pairingCode.safeParse(pairing);
+    if (!parsed.success) { setNotice("Enter the 12-character pairing code shown on your PC."); return; }
+    setBusy(true);
+    try {
+      const result = await request({ data: { op: "link", code: parsed.data } });
+      if (!result.phoneToken) { setNotice(result.error ?? "Could not link this phone."); return; }
+      localStorage.setItem("jarvis-phone-token", result.phoneToken);
+      setToken(result.phoneToken); setPairing(""); setState({});
+    } catch { setNotice("Could not link this phone. Try again."); }
+    finally { setBusy(false); }
+  };
   const record = async () => {
     if (recording) { recorder.current?.stop(); setRecording(false); return; }
     setNotice("");
@@ -88,12 +102,7 @@ function PhoneRemote() {
   return <main className="min-h-screen bg-term-bg px-5 py-8 text-term-text">
     <div className="mx-auto max-w-lg space-y-6">
       <header className="flex items-center gap-4 border-b border-primary/30 pb-5"><img src={reactor.url} alt="" className="h-16 w-16" /><div><h1 className="font-hud text-xl text-primary">JARVIS</h1><p className="font-mono text-xs text-term-dim">PHONE REMOTE</p></div></header>
-      {!token ? <form className="space-y-3" onSubmit={(event) => {
-        event.preventDefault();
-        const value = pairing.includes("#") ? pairing.split("#").pop() ?? "" : pairing.trim();
-        if (!/^[a-f0-9]{64}$/.test(value)) { setNotice("Paste the private phone link from your PC's Mainframe."); return; }
-        localStorage.setItem("jarvis-phone-token", value); setToken(value);
-      }}><label className="block font-mono text-sm">Private phone link<input aria-label="Private phone link" value={pairing} onChange={(event) => setPairing(event.target.value)} className="mt-2 w-full border border-primary/40 bg-term-bg p-3" /></label><Button type="submit"><Monitor size={16} />Connect PC</Button></form> : <>
+      {!token ? <form className="space-y-4" onSubmit={(event) => { event.preventDefault(); void linkPhone(); }}><h2 className="font-hud text-lg text-primary">LINK YOUR PC</h2><label className="block font-mono text-sm">Pairing code<input aria-label="Pairing code" autoComplete="off" autoCapitalize="characters" spellCheck={false} placeholder="XXXX-XXXX-XXXX" maxLength={20} value={pairing} onChange={(event) => setPairing(event.target.value.toUpperCase())} className="mt-2 w-full border border-primary/40 bg-term-bg p-3 font-mono text-lg outline-none focus:border-primary" /></label><Button type="submit" disabled={busy || !pairing.trim()}><Monitor size={16} />{busy ? "Linking…" : "Link PC"}</Button></form> : <>
         <div className="flex items-center justify-between"><span className="flex items-center gap-2 font-mono text-sm"><Monitor size={16} />Main PC · {state.online ? "Online" : "Offline"}</span><Button size="icon" variant="ghost" aria-label="Forget this phone pairing" onClick={() => { localStorage.removeItem("jarvis-phone-token"); setToken(""); setState({}); }}><Unplug size={18} /></Button></div>
         <form className="space-y-4" onSubmit={(event) => { event.preventDefault(); void send(); }}>
           {!!channels.length && <fieldset><legend className="mb-2 font-mono text-xs text-term-dim">VOICE CHANNEL</legend><div className="flex flex-wrap gap-2">{channels.map((name) => <Button key={name} type="button" variant={channel === name ? "default" : "outline"} aria-pressed={channel === name} onClick={() => setChannel(name)}>{name}</Button>)}</div></fieldset>}

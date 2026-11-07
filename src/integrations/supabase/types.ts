@@ -60,6 +60,8 @@ export type Database = {
           id: string
           last_seen: string | null
           name: string
+          pairing_expires_at: string | null
+          pairing_hash: string | null
           phone_hash: string
           revoked: boolean
         }
@@ -70,6 +72,8 @@ export type Database = {
           id?: string
           last_seen?: string | null
           name?: string
+          pairing_expires_at?: string | null
+          pairing_hash?: string | null
           phone_hash: string
           revoked?: boolean
         }
@@ -80,6 +84,8 @@ export type Database = {
           id?: string
           last_seen?: string | null
           name?: string
+          pairing_expires_at?: string | null
+          pairing_hash?: string | null
           phone_hash?: string
           revoked?: boolean
         }
