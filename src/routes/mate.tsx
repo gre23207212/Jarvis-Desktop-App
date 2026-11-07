@@ -8,9 +8,10 @@ import reactor from "@/assets/jarvis-reactor.png.asset.json";
 import { loadMemory, memoryCommand, memoryContext, saveConversation } from "@/lib/memory";
 import { selectDiscordChannel } from "@/lib/discord-selection";
 import { deliverDiscordMessage } from "@/lib/discord-relay";
+import { ASK_GAME, findGame } from "@/lib/game-detect";
 import { useRemoteDesktop } from "@/hooks/use-remote-desktop";
 import type { DiscordServer } from "@/lib/jarvis";
-import { asksQuestion, bridge, liveContext, loadSettings, parseAction, parseWake, personaPrompt, relayLines, saveSettings, sentiment, SIZES, SYSTEM_PROMPT, type Action, type Settings } from "@/lib/jarvis";
+import { asksQuestion, bridge, liveContext, loadSettings, parseAction, parseWake, personaPrompt, relayLines, saveSettings, sentiment, SIZES, SYSTEM_PROMPT, type Action, type Bridge, type Settings } from "@/lib/jarvis";
 
 export const Route = createFileRoute("/mate")({
   head: () => ({
@@ -346,6 +347,50 @@ function Mate() {
     return true;
   };
 
+  // Hear the call: record what Windows plays (your friends in Discord) for a short window, then transcribe it.
+  const hearCall = async (seconds = 12): Promise<string> => {
+    let stream: MediaStream | null = null;
+    try {
+      stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+      stream.getVideoTracks().forEach((t) => t.stop());
+      const audio = new MediaStream(stream.getAudioTracks());
+      if (!audio.getAudioTracks().length) return "";
+      const rec = new MediaRecorder(audio, { mimeType: "audio/webm" });
+      const chunks: Blob[] = [];
+      rec.ondataavailable = (e) => chunks.push(e.data);
+      const done = new Promise<void>((res) => { rec.onstop = () => res(); });
+      rec.start();
+      setReply("Listening to the call…");
+      setM("listening");
+      await new Promise((res) => setTimeout(res, seconds * 1000));
+      rec.stop();
+      await done;
+      const blob = new Blob(chunks, { type: "audio/webm" });
+      if (blob.size < 3000) return "";
+      const fd = new FormData();
+      fd.append("file", blob, "call.webm");
+      const r = await fetch("/api/transcribe", { method: "POST", body: fd }).then((x) => x.json()).catch(() => ({}));
+      return typeof r.text === "string" ? r.text : "";
+    } catch {
+      return "";
+    } finally {
+      stream?.getTracks().forEach((t) => t.stop());
+      setM("idle");
+    }
+  };
+
+  const askWhatGame = async (b: Bridge): Promise<string> => {
+    if (!(await sayIntoCable(ASK_GAME))) return "";
+    const heard = await hearCall();
+    if (!heard) return " I couldn't hear what they're playing.";
+    const game = findGame(heard, (await b.listApps?.()) ?? []);
+    if (!game) return ` They said: "${heard.slice(0, 80)}", but I couldn't find that game on your PC.`;
+    const r = await b.openApp?.(game);
+    if (!r?.ok) return ` They want ${game}, but I couldn't open it.`;
+    await sayIntoCable(`Booting up ${r.name ?? game} on my boss's PC now.`);
+    return ` They're playing ${r.name ?? game}, so I've started it for you.`;
+  };
+
   const runAction = async (act: Action, s: Settings): Promise<string> => {
     const b = bridge();
     if (!b) return "Discord actions are available in the desktop app, sir.";
@@ -374,9 +419,17 @@ function Mate() {
     setReply("Joining your Discord call, sir…");
     await new Promise((res) => setTimeout(res, 2500));
     const lines = relayLines(act.message, s.userName ?? "");
-    const result = await deliverDiscordMessage(() => sayIntoCable(lines.call), () => b.discordMute?.() ?? Promise.resolve({ ok: false }));
+    let gameNote = "";
+    const result = await deliverDiscordMessage(
+      async () => {
+        if (!(await sayIntoCable(lines.call))) return false;
+        if (s.askGame) gameNote = await askWhatGame(b);
+        return true;
+      },
+      () => b.discordMute?.() ?? Promise.resolve({ ok: false }),
+    );
     if (result === "failed") return "I joined, sir, but couldn't play the message through VB-Cable. Check your audio setup in the Mainframe.";
-    return result === "muted" ? `${lines.done} Your Discord microphone is now muted.` : `${lines.done} I couldn't confirm your Discord microphone is muted; please mute it yourself.`;
+    return result === "muted" ? `${lines.done}${gameNote} Your Discord microphone is now muted.` : `${lines.done}${gameNote} I couldn't confirm your Discord microphone is muted; please mute it yourself.`;
   };
 
   // ---------- voice in: one mic loop for both "Hey Jarvis" and click-to-talk ----------

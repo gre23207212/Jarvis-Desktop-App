@@ -376,7 +376,14 @@ function Mainframe() {
                   </div>
                 ))}
               </div>
-              <p className="mt-1 font-mono text-[10px] text-term-dim">In calls Jarvis switches Windows to the VB-Cable devices, then back to your defaults. Set Discord Input/Output Device to Default once so it follows.</p>
+              <div className="mt-2 rounded border border-primary/40 p-2 font-mono text-[10px] text-term-text">
+                <p className="font-hud tracking-wider text-primary">ONE-TIME DISCORD SETUP</p>
+                <p>Discord → Settings → Voice &amp; Video → set <b>Input Device</b> and <b>Output Device</b> to <b>Default</b>.</p>
+                <p className="text-term-dim">Jarvis then talks through your mic only while speaking, you hear him too, and everything goes back to normal after.</p>
+              </div>
+              <div className="mt-2">
+                <Toggle on={s.askGame} onChange={(v) => set({ askGame: v })} label="ASK WHAT GAME THEY'RE PLAYING" note="Listens to the call and starts the game if you own it" />
+              </div>
             </Section>
           </>)}
         </div>

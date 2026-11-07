@@ -28,6 +28,8 @@ export type Settings = {
   audioOut: string;
   cableIn: string;
   cableOut: string;
+  /** After relaying in a call, ask friends what they're playing and start that game. */
+  askGame: boolean;
 };
 export type DiscordServer = { name: string; link: string };
 
@@ -56,6 +58,7 @@ export const DEFAULTS: Settings = {
   audioOut: "",
   cableIn: "",
   cableOut: "",
+  askGame: true,
 };
 
 export const SIZES: Record<Size, number> = { small: 0.7, medium: 1, large: 1.3, huge: 1.6 };

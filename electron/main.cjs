@@ -3,7 +3,7 @@ const path = require("path");
 const fs = require("fs");
 const os = require("os");
 const { spawn } = require("child_process");
-const { app, BrowserWindow, Tray, nativeImage, screen, session, ipcMain, shell } = require("electron");
+const { app, BrowserWindow, Tray, nativeImage, screen, session, ipcMain, shell, desktopCapturer } = require("electron");
 
 const BASE = process.env.JARVIS_URL || "https://pocket-jarvis-desktop-mate.lovable.app";
 const ICON = path.join(__dirname, process.platform === "win32" ? "icon.ico" : "icon.png");
@@ -553,6 +553,12 @@ app.whenReady().then(() => {
   if (MODE !== "run") return openSetup(MODE);
   session.defaultSession.setPermissionRequestHandler((_wc, perm, cb) => cb(perm === "media"));
   session.defaultSession.setPermissionCheckHandler((_wc, perm) => perm === "media");
+  // Let Jarvis hear the call: share what Windows is playing (system "loopback" audio), no picker.
+  session.defaultSession.setDisplayMediaRequestHandler((_req, cb) => {
+    desktopCapturer.getSources({ types: ["screen"] })
+      .then((sources) => cb(sources[0] ? { video: sources[0], audio: "loopback" } : {}))
+      .catch(() => cb({}));
+  });
   createMate();
   createMenu();
   const img = nativeImage.createFromPath(path.join(__dirname, process.platform === "win32" ? "tray.ico" : "tray.png"));
