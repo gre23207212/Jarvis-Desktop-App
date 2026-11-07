@@ -12,3 +12,16 @@ describe("parseWake", () => {
     expect(parseWake("hey there what's the time")).toBeNull();
   });
 });
+
+import { extractPlace } from "./jarvis";
+describe("extractPlace", () => {
+  it("finds the town in 'what's the weather in Blackburn'", () => {
+    expect(extractPlace("what's the weather in Blackburn", false)).toBe("Blackburn");
+  });
+  it("treats a bare town as the place after a weather question", () => {
+    expect(extractPlace("Blackburn", true)).toBe("Blackburn");
+  });
+  it("uses your own location when no place is named", () => {
+    expect(extractPlace("what's the weather like", false)).toBeNull();
+  });
+});

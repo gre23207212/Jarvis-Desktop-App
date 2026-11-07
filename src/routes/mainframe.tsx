@@ -18,9 +18,9 @@ export const Route = createFileRoute("/mainframe")({
 });
 
 const BRAINS: { id: Brain; label: string; note: string }[] = [
-  { id: "chatgpt", label: "CHATGPT", note: "Your saved ChatGPT key" },
-  { id: "builtin", label: "BUILT-IN CLOUD", note: "No key needed" },
-  { id: "local", label: "LOCAL · GEMMA", note: "Runs on this PC, free" },
+  { id: "local", label: "LOCAL · GEMMA", note: "Free, runs on this PC" },
+  { id: "builtin", label: "BUILT-IN CLOUD", note: "Free, no setup" },
+  { id: "chatgpt", label: "CHATGPT", note: "Project's ChatGPT key" },
   { id: "custom", label: "CUSTOM", note: "Your own API key & model" },
 ];
 
@@ -44,7 +44,8 @@ function Mainframe() {
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [mics, setMics] = useState<MediaDeviceInfo[]>([]);
   const [status, setStatus] = useState("");
-  const [setup, setSetup] = useState(false);
+  const [local, setLocal] = useState<{ running: boolean; hasModel: boolean } | null>(null);
+  const [dl, setDl] = useState<{ text: string; pct: number | null } | null>(null);
 
   useEffect(() => {
     document.documentElement.style.background = "transparent";
@@ -53,7 +54,11 @@ function Mainframe() {
     const lv = () => setVoices(speechSynthesis.getVoices().filter((v) => v.lang.startsWith("en")));
     lv();
     speechSynthesis.onvoiceschanged = lv;
+    const s0 = loadSettings();
+    bridge()?.localStatus?.(s0.localModel).then(setLocal);
+    const off = bridge()?.onCmd((n, a) => { if (n === "setup-progress") setDl(a as { text: string; pct: number | null }); });
     navigator.mediaDevices?.enumerateDevices().then((d) => setMics(d.filter((x) => x.kind === "audioinput"))).catch(() => {});
+    return off;
   }, []);
 
   if (!s) return null;
@@ -66,6 +71,17 @@ function Mainframe() {
     if (!b) { setStatus("Testing local brains works in the desktop app."); return; }
     const r = await b.chat({ ...req, messages: [{ role: "system", content: SYSTEM_PROMPT }, { role: "user", content: "Say hello in five words." }] });
     setStatus(r.error ? "✗ " + r.error : "✓ " + r.text);
+  };
+
+  const install = async () => {
+    if (!b?.localSetup) { setStatus("One-click install works in the desktop app."); return; }
+    setStatus("");
+    setDl({ text: "Preparing…", pct: null });
+    const r = await b.localSetup(s.localModel);
+    if (r.error) { setDl(null); setStatus("✗ " + r.error); return; }
+    setLocal(await b.localStatus!(s.localModel));
+    setDl(null);
+    setStatus("✓ Gemma is installed. Jarvis now thinks on your PC.");
   };
 
   const testVoice = () => {
@@ -107,17 +123,23 @@ function Mainframe() {
                 <input className={field} value={s.localModel} onChange={(e) => set({ localModel: e.target.value })} placeholder="gemma4:e4b" aria-label="Local model" />
                 <input className={field} value={s.localUrl} onChange={(e) => set({ localUrl: e.target.value })} aria-label="Local address" />
               </div>
-              <div className="flex gap-2">
-                <button className={btn} onClick={() => setSetup(!setup)}>SET UP</button>
-                <button className={btn} onClick={test}>TEST</button>
-              </div>
-              {setup && (
-                <ol className="list-decimal space-y-1 pl-5 font-mono text-[11px] text-term-dim">
-                  <li>Install Ollama from <span className="text-primary">ollama.com</span></li>
-                  <li>Open a terminal and run <span className="text-term-text">ollama pull {s.localModel}</span></li>
-                  <li>Press TEST. Jarvis now thinks entirely on your PC.</li>
-                </ol>
+              <p className="font-mono text-[11px] text-term-dim">
+                {local == null ? "Status: open in the desktop app to check." : local.hasModel ? "◆ Installed and ready." : local.running ? "Engine ready, model not downloaded yet." : "Not installed yet."}
+              </p>
+              {dl ? (
+                <div className="space-y-1">
+                  <div className="h-2 w-full border border-primary/50">
+                    <div className={`h-full bg-primary transition-all ${dl.pct == null ? "w-1/3 animate-pulse" : ""}`} style={dl.pct == null ? undefined : { width: `${Math.round(dl.pct * 100)}%` }} />
+                  </div>
+                  <p className="font-mono text-[11px] text-term-reply">{dl.text}</p>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  {!local?.hasModel && <button className={btn} onClick={install}>DOWNLOAD &amp; INSTALL (~10 GB)</button>}
+                  <button className={btn} onClick={test}>TEST</button>
+                </div>
               )}
+              <p className="font-mono text-[10px] text-term-dim">Until Gemma is ready, Jarvis uses the free cloud brain.</p>
             </div>
           )}
           {s.brain === "custom" && (

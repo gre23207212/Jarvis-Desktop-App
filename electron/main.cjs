@@ -1,5 +1,8 @@
 // Jarvis Desktop Mate — transparent, always-on-top companion with a custom tray menu and Mainframe window.
 const path = require("path");
+const fs = require("fs");
+const os = require("os");
+const { spawn } = require("child_process");
 const { app, BrowserWindow, Tray, nativeImage, screen, session, ipcMain } = require("electron");
 
 const BASE = process.env.JARVIS_URL || "https://pocket-jarvis-desktop-mate.lovable.app";
@@ -35,7 +38,7 @@ function createMate() {
 
 function createMenu() {
   menu = new BrowserWindow({
-    width: 250, height: 380, show: false, frame: false, transparent: true, resizable: false,
+    width: 196, height: 250, show: false, frame: false, transparent: true, resizable: false,
     alwaysOnTop: true, skipTaskbar: true, hasShadow: false, backgroundColor: "#00000000", webPreferences: webPrefs,
   });
   menu.webContents.on("did-finish-load", () => menu.webContents.insertCSS(CLEAR_CSS));
@@ -121,6 +124,78 @@ ipcMain.handle("chat", async (_e, { url, key, model, messages }) => {
     return { text: (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) || "" };
   } catch (err) {
     return { error: "Couldn't reach " + url + ". Is it running?" };
+  }
+});
+
+// ---------- One-click local brain: installs Ollama if needed, then downloads the model ----------
+const OLLAMA = "http://127.0.0.1:11434";
+const ping = () => fetch(OLLAMA + "/api/tags", { signal: AbortSignal.timeout(2000) }).then((r) => r.json()).catch(() => null);
+const progress = (e, text, pct) => e.sender.send("cmd", "setup-progress", { text, pct });
+const ollamaExe = () => [
+  path.join(process.env.LOCALAPPDATA || "", "Programs", "Ollama", "ollama app.exe"),
+  path.join(process.env.LOCALAPPDATA || "", "Programs", "Ollama", "ollama.exe"),
+].find((p) => fs.existsSync(p));
+
+async function waitForOllama(e, secs) {
+  for (let i = 0; i < secs; i++) {
+    if (await ping()) return true;
+    progress(e, "Starting the local engine…", null);
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+  return false;
+}
+
+ipcMain.handle("local-status", async (_e, model) => {
+  const tags = await ping();
+  return { running: !!tags, hasModel: !!tags && (tags.models || []).some((m) => m.name === model || m.name === model + ":latest") };
+});
+
+ipcMain.handle("local-setup", async (e, model) => {
+  try {
+    if (!(await ping())) {
+      let exe = ollamaExe();
+      if (!exe) {
+        if (process.platform !== "win32") return { error: "Automatic install is Windows-only. Install Ollama from ollama.com." };
+        const file = path.join(os.tmpdir(), "OllamaSetup.exe");
+        const r = await fetch("https://ollama.com/download/OllamaSetup.exe");
+        if (!r.ok || !r.body) return { error: "Couldn't download the local engine." };
+        const total = Number(r.headers.get("content-length")) || 0;
+        let got = 0;
+        const out = fs.createWriteStream(file);
+        for await (const chunk of r.body) {
+          got += chunk.length;
+          out.write(Buffer.from(chunk));
+          progress(e, "Downloading the local engine…", total ? got / total : null);
+        }
+        await new Promise((res) => out.end(res));
+        progress(e, "Installing the local engine…", null);
+        await new Promise((res) => spawn(file, ["/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART"], { stdio: "ignore" }).on("exit", res).on("error", res));
+        exe = ollamaExe();
+      }
+      if (exe) spawn(exe, [], { detached: true, stdio: "ignore" }).unref();
+      if (!(await waitForOllama(e, 90))) return { error: "The local engine didn't start. Try again in a minute." };
+    }
+    progress(e, "Downloading " + model + "…", 0);
+    const r = await fetch(OLLAMA + "/api/pull", { method: "POST", body: JSON.stringify({ model, stream: true }) });
+    if (!r.ok || !r.body) return { error: "Couldn't start the model download." };
+    let buf = "";
+    const dec = new TextDecoder();
+    for await (const chunk of r.body) {
+      buf += dec.decode(chunk, { stream: true });
+      const lines = buf.split("\n");
+      buf = lines.pop();
+      for (const l of lines) {
+        if (!l.trim()) continue;
+        const j = JSON.parse(l);
+        if (j.error) return { error: j.error };
+        const gb = (n) => (n / 1e9).toFixed(1);
+        progress(e, j.total ? `Downloading ${model}… ${gb(j.completed || 0)} / ${gb(j.total)} GB` : j.status, j.total ? (j.completed || 0) / j.total : null);
+      }
+    }
+    progress(e, "Ready.", 1);
+    return { ok: true };
+  } catch (err) {
+    return { error: String((err && err.message) || err) };
   }
 });
 

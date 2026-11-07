@@ -2,8 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { AudioLines, Pencil } from "lucide-react";
 import reactor from "@/assets/jarvis-reactor.png.asset.json";
-import logo from "@/assets/jarvis-logo.png.asset.json";
-import { bridge, loadSettings, parseWake, saveSettings, SIZES, SYSTEM_PROMPT, type Settings } from "@/lib/jarvis";
+import { bridge, liveContext, loadSettings, parseWake, saveSettings, SIZES, SYSTEM_PROMPT, type Settings } from "@/lib/jarvis";
 
 export const Route = createFileRoute("/mate")({
   head: () => ({
@@ -31,6 +30,7 @@ function Mate() {
   const [hover, setHover] = useState(false);
   const [settings, setSettings] = useState<Settings | null>(null);
   const history = useRef<Msg[]>([]);
+  const warned = useRef(false);
   const modeRef = useRef<Mode>("idle");
   const want = useRef<"wake" | "command" | "none">("none");
   const settingsRef = useRef<Settings | null>(null);
@@ -102,31 +102,13 @@ function Mate() {
     const s = settingsRef.current ?? loadSettings();
     let full = "";
     try {
-      if (s.brain === "local" || s.brain === "custom") {
-        const b = bridge();
-        const req = s.brain === "local"
-          ? { url: s.localUrl, model: s.localModel }
-          : { url: s.customUrl, key: s.customKey, model: s.customModel };
-        const messages = [{ role: "system", content: SYSTEM_PROMPT }, ...history.current];
-        if (b) {
-          const r = await b.chat({ ...req, messages });
-          if (r.error) throw new Error(r.error);
-          full = r.text ?? "";
-        } else {
-          const r = await fetch(req.url.replace(/\/$/, "") + "/chat/completions", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", ...("key" in req && req.key ? { Authorization: `Bearer ${req.key}` } : {}) },
-            body: JSON.stringify({ model: req.model, messages }),
-          });
-          if (!r.ok) throw new Error("That brain didn't answer, sir.");
-          full = (await r.json()).choices?.[0]?.message?.content ?? "";
-        }
-        setReply(full);
-      } else {
+      const context = await liveContext(t, history.current);
+      const system = `${SYSTEM_PROMPT}\n\n${context}`;
+      const cloud = async (provider: "builtin" | "chatgpt") => {
         const res = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ messages: history.current, provider: s.brain }),
+          body: JSON.stringify({ messages: history.current, provider, context }),
         });
         if (!res.ok || !res.body) throw new Error((await res.json().catch(() => ({}))).error || "Systems malfunction, sir.");
         const reader = res.body.getReader();
@@ -145,6 +127,26 @@ function Mate() {
             try { const c = JSON.parse(d).choices?.[0]?.delta?.content; if (c) { full += c; setReply(full); } } catch { /* partial */ }
           }
         }
+      };
+      if (s.brain === "local" || s.brain === "custom") {
+        const b = bridge();
+        const req = s.brain === "local"
+          ? { url: s.localUrl, model: s.localModel }
+          : { url: s.customUrl, key: s.customKey, model: s.customModel };
+        const messages = [{ role: "system", content: system }, ...history.current];
+        let err = "";
+        if (b) {
+          const r = await b.chat({ ...req, messages });
+          if (r.error) err = r.error; else full = r.text ?? "";
+        } else err = "desktop only";
+        if (err && s.brain === "local") {
+          // Gemma isn't installed/running yet — answer with the built-in brain instead.
+          await cloud("builtin");
+          if (!warned.current) { warned.current = true; full += " (Using my cloud brain for now — set up Gemma in the Mainframe to think locally.)"; }
+        } else if (err) throw new Error(err);
+        setReply(full);
+      } else {
+        await cloud(s.brain);
       }
       history.current.push({ role: "assistant", content: full });
       speak(full);
@@ -300,27 +302,24 @@ function Mate() {
         )}
 
         <div data-hit onMouseEnter={enter} onMouseLeave={leave} className="flex flex-col items-center gap-2">
-          <button
-            onPointerDown={onDown}
-            onPointerMove={onDragMove}
-            onPointerUp={onUp}
-            aria-label="Jarvis — click to talk, drag to move"
-            className="jarvis-orb relative h-32 w-32 shrink-0 cursor-grab touch-none active:cursor-grabbing"
-          >
-            <img src={reactor.url} alt="" draggable={false}
-              className={`pointer-events-none absolute inset-0 h-full w-full ${busy ? "animate-spin-fast" : "animate-spin-slow"} ${mode === "listening" ? "animate-core-fast" : ""}`} />
-            <img src={logo.url} alt="" draggable={false}
-              className={`pointer-events-none absolute inset-[30%] h-[40%] w-[40%] ${mode === "speaking" ? "animate-core-fast" : "animate-core"}`} />
-          </button>
-
-          <div className={`jarvis-pill flex items-center gap-1 px-2 py-1 transition-all duration-200 ${hover || typing ? "opacity-100" : "pointer-events-none translate-y-1 opacity-0"}`}>
-            <button aria-label="Type to Jarvis" onClick={() => { setTyping(true); setReply(""); setYou(""); }} className="rounded-full p-2 text-term-text hover:text-primary">
-              <Pencil size={15} />
+          <div className="relative flex items-center">
+            <button aria-label="Type to Jarvis" onClick={() => { setTyping(true); setReply(""); setYou(""); }}
+              className={`hud-node mr-1 transition-all duration-200 ${hover || typing ? "opacity-100" : "pointer-events-none translate-x-3 opacity-0"}`}>
+              <Pencil size={13} />
             </button>
-            <span className="h-4 w-px bg-border" />
+            <button
+              onPointerDown={onDown}
+              onPointerMove={onDragMove}
+              onPointerUp={onUp}
+              aria-label="Jarvis — click to talk, drag to move"
+              className="jarvis-orb relative h-32 w-32 shrink-0 cursor-grab touch-none active:cursor-grabbing"
+            >
+              <img src={reactor.url} alt="" draggable={false}
+                className={`pointer-events-none absolute inset-0 h-full w-full ${busy ? "animate-spin-fast" : "animate-spin-slow"} ${mode === "listening" || mode === "speaking" ? "animate-core-fast" : ""}`} />
+            </button>
             <button aria-label="Talk to Jarvis" onClick={() => (mode === "listening" ? (endListen(), setReply("")) : listenNow())}
-              className={`rounded-full p-2 hover:text-primary ${mode === "listening" ? "text-primary" : "text-term-text"}`}>
-              <AudioLines size={15} />
+              className={`hud-node ml-1 transition-all duration-200 ${mode === "listening" ? "text-primary" : ""} ${hover || typing ? "opacity-100" : "pointer-events-none -translate-x-3 opacity-0"}`}>
+              <AudioLines size={13} />
             </button>
           </div>
         </div>
