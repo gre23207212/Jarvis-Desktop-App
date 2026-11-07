@@ -4,6 +4,7 @@ import { AudioLines, Pencil } from "lucide-react";
 import reactor from "@/assets/jarvis-reactor.png.asset.json";
 import { loadMemory, memoryCommand, memoryContext, saveConversation } from "@/lib/memory";
 import { selectDiscordChannel } from "@/lib/discord-selection";
+import { deliverDiscordMessage } from "@/lib/discord-relay";
 import type { DiscordServer } from "@/lib/jarvis";
 import { bridge, liveContext, loadSettings, parseAction, parseWake, personaPrompt, relayLines, saveSettings, sentiment, SIZES, SYSTEM_PROMPT, type Action, type Settings } from "@/lib/jarvis";
 
@@ -255,14 +256,19 @@ function Mate() {
     const swapped = (await b?.cableMic?.(true).catch(() => null))?.ok;
     try {
       if (swapped) await new Promise((res) => setTimeout(res, 900));
-      if (cableOnly) { await toCall.play().catch(() => {}); }
-      else {
+      const completed = new Promise<boolean>((resolve) => {
+        const timer = window.setTimeout(() => { toCall.pause(); resolve(false); }, 60000);
+        toCall.onended = () => { window.clearTimeout(timer); resolve(true); };
+        toCall.onerror = () => { window.clearTimeout(timer); resolve(false); };
+      });
+      setM("speaking");
+      try { await toCall.play(); } catch { toCall.dispatchEvent(new Event("error")); return false; }
+      if (!cableOnly) {
         const local = new Audio(src); // so you hear it too
         local.volume = toCall.volume;
-        setM("speaking");
-        await Promise.all([toCall.play(), local.play()]).catch(() => {});
+        await local.play().catch(() => {});
       }
-      await new Promise((res) => { toCall.onended = res; setTimeout(res, 20000); });
+      if (!(await completed)) return false;
       await new Promise((res) => setTimeout(res, 400));
     } finally {
       if (swapped) await b?.cableMic?.(false).catch(() => null);
@@ -299,8 +305,9 @@ function Mate() {
     setReply("Joining your Discord call, sir…");
     await new Promise((res) => setTimeout(res, 2500));
     const lines = relayLines(act.message, s.userName ?? "");
-    const ok = await sayIntoCable(lines.call);
-    return ok ? lines.done : "I joined, sir, but I need VB-Cable installed to speak in the call. There's a button in the Mainframe.";
+    const result = await deliverDiscordMessage(() => sayIntoCable(lines.call), () => b.discordMute?.() ?? Promise.resolve({ ok: false }));
+    if (result === "failed") return "I joined, sir, but couldn't play the message through VB-Cable. Check your audio setup in the Mainframe.";
+    return result === "muted" ? `${lines.done} Your Discord microphone is now muted.` : `${lines.done} I couldn't confirm your Discord microphone is muted; please mute it yourself.`;
   };
 
   // ---------- voice in: one mic loop for both "Hey Jarvis" and click-to-talk ----------

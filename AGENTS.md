@@ -31,3 +31,4 @@ use the editor.
 - Desktop shell (electron/) loads published /mate, /tray-menu, /mainframe pages; settings live in browser storage shared across those windows, and local/custom AI calls go through the main process to avoid browser restrictions.
 - Both chat surfaces use the shared browser-storage memory module for explicit saved facts and recent conversation; this keeps desktop windows consistent without cloud account requirements.
 - Resolve Discord channel names through the shared selection module and keep pending relay actions in the companion until a unique channel is selected; this prevents accidental joins and preserves follow-up intent.
+- Sequence Discord self-muting through the tested relay helper after successful playback; Windows automation must detect Mute/Unmute state rather than blindly toggle it.

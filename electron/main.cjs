@@ -390,6 +390,45 @@ for ($i = 0; $i -lt 24; $i++) {
   return { ok: true, joined: r.endsWith("ok") };
 });
 
+// Set self-mute, not a blind keyboard toggle: an already-muted microphone must stay muted.
+ipcMain.handle("discord-mute", async () => {
+  if (!IS_WIN) return { error: "Discord muting is Windows only" };
+  const r = await ps(`Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
+Add-Type 'using System;using System.Runtime.InteropServices;public class DM{[DllImport("user32.dll")]public static extern bool SetForegroundWindow(IntPtr h);[DllImport("user32.dll")]public static extern bool ShowWindow(IntPtr h,int c);}'
+$p = Get-Process Discord -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1
+if (-not $p) { 'nodiscord'; exit }
+[DM]::ShowWindow($p.MainWindowHandle, 9) | Out-Null
+[DM]::SetForegroundWindow($p.MainWindowHandle) | Out-Null
+function Find-Mic($root, $label) {
+  $items = $root.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
+  foreach ($item in $items) {
+    if ($item.Current.IsOffscreen -or -not $item.Current.IsEnabled) { continue }
+    $name = $item.Current.Name
+    if ($name -match ('^' + $label + '(?:$|\\s*\\()') -and ($item.Current.ControlType -eq [System.Windows.Automation.ControlType]::Button -or $item.Current.ControlType -eq [System.Windows.Automation.ControlType]::CheckBox)) { return $item }
+  }
+  return $null
+}
+$clicked = $false
+for ($i = 0; $i -lt 12; $i++) {
+  Start-Sleep -Milliseconds 250
+  $root = [System.Windows.Automation.AutomationElement]::FromHandle($p.MainWindowHandle)
+  if (Find-Mic $root 'Unmute') { 'ok'; exit }
+  if ($clicked) { continue }
+  $button = Find-Mic $root 'Mute'
+  if ($button) {
+    try { $button.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); $clicked = $true } catch {
+      try {
+        $toggle = $button.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
+        if ($toggle.Current.ToggleState -eq [System.Windows.Automation.ToggleState]::Off) { $toggle.Toggle() }
+        $clicked = $true
+      } catch {}
+    }
+  }
+}
+'notconfirmed'`);
+  return r.endsWith("ok") ? { ok: true } : { error: "Couldn't confirm Discord microphone is muted" };
+});
+
 // Jarvis's own voice rendered to a WAV so it can be played into any output (e.g. VB-Cable).
 // Uses the same Windows voice the mate speaks with (e.g. "Microsoft George"), falling back to any male English voice.
 ipcMain.handle("voice-wav", async (_e, text, voiceName) => {

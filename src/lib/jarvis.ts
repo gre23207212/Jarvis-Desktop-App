@@ -81,6 +81,7 @@ export type Bridge = {
   openApp?: (name: string) => Promise<{ ok?: boolean; name?: string; error?: string }>;
   spotifyPlay?: (query: string) => Promise<{ ok?: boolean; error?: string }>;
   discordJoin?: (link: string) => Promise<{ ok?: boolean; joined?: boolean; error?: string }>;
+  discordMute?: () => Promise<{ ok?: boolean; error?: string }>;
   voiceWav?: (text: string, voiceName?: string) => Promise<{ wav?: string; error?: string }>;
   /** true: make VB-Cable the Windows default microphone (Discord on "Default" hears Jarvis). false: put your normal mic back. */
   cableMic?: (on: boolean) => Promise<{ ok?: boolean; error?: string }>;
