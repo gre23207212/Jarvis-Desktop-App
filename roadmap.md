@@ -18,3 +18,4 @@
 - [x] Use they/them in Discord relay messages and retain post-message muting.
 - [x] Add secure phone pairing, typed/spoken remote Discord commands and PC status/results.
 - [x] Verify real pairing, command delivery/results and revoked access with a simulated desktop; document setup. Real Windows/Discord and phone microphone remain unverified.
+- [x] Vercel site: send every page to /pairing, fix missing logo, show the Vercel pairing link on PC.

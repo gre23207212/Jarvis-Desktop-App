@@ -118,6 +118,11 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  useEffect(() => {
+    if (window.location.hostname.endsWith(".vercel.app") && window.location.pathname !== "/pairing") {
+      window.location.replace("/pairing");
+    }
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
