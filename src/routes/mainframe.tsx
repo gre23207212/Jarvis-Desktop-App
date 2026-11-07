@@ -104,6 +104,8 @@ function Mainframe() {
   const [s, setS] = useState<Settings | null>(null);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [mics, setMics] = useState<MediaDeviceInfo[]>([]);
+  const [devs, setDevs] = useState<{ inputs: string[]; outputs: string[] }>({ inputs: [], outputs: [] });
+  useEffect(() => { bridge()?.audioDevices?.().then(setDevs).catch(() => {}); }, []);
   const [status, setStatus] = useState("");
   const [local, setLocal] = useState<{ running: boolean; hasModel: boolean } | null>(null);
   const [dl, setDl] = useState<{ text: string; pct: number | null } | null>(null);
@@ -347,7 +349,16 @@ function Mainframe() {
                 <p className="font-mono text-[11px] text-term-dim">{cable ? <span className="text-primary">◆ VB-Cable found.</span> : "VB-Cable not found — needed for Jarvis to talk in calls."}</p>
                 {!cable && <button className={btn} onClick={() => b?.openUrl?.("https://vb-audio.com/Cable/")}>GET VB-CABLE</button>}
               </div>
-              <p className="mt-1 font-mono text-[10px] text-term-dim">Discord Input Device: Default.</p>
+              <div className="mt-2 space-y-2">
+                {([["audioIn", "inputs", "Default input", "Your mic"], ["audioOut", "outputs", "Default output", "Your speakers"], ["cableIn", "outputs", "VB-Cable input", "CABLE Input"], ["cableOut", "inputs", "VB-Cable output", "CABLE Output"]] as const).map(([key, list, label, auto]) => (
+                  <div key={key} className="flex items-center gap-2">
+                    <span className="w-24 shrink-0 font-hud text-[10px] tracking-wider text-term-text">{label.toUpperCase()}</span>
+                    <HudSelect label={label} value={s[key]} onChange={(v) => set({ [key]: v })}
+                      options={[{ value: "", label: `Auto (${auto})` }, ...devs[list].map((n) => ({ value: n, label: n }))]} />
+                  </div>
+                ))}
+              </div>
+              <p className="mt-1 font-mono text-[10px] text-term-dim">In calls Jarvis switches Windows to the VB-Cable devices, then back to your defaults. Set Discord Input/Output Device to Default once so it follows.</p>
             </Section>
           </>)}
         </div>

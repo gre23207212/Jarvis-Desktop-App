@@ -23,6 +23,11 @@ export type Settings = {
   voiceToCable: boolean;
   alwaysOnTop: boolean;
   startup: boolean;
+  /** Windows device names; blank = automatic. */
+  audioIn: string;
+  audioOut: string;
+  cableIn: string;
+  cableOut: string;
 };
 export type DiscordServer = { name: string; link: string };
 
@@ -47,6 +52,10 @@ export const DEFAULTS: Settings = {
   voiceToCable: false,
   alwaysOnTop: true,
   startup: false,
+  audioIn: "",
+  audioOut: "",
+  cableIn: "",
+  cableOut: "",
 };
 
 export const SIZES: Record<Size, number> = { small: 0.7, medium: 1, large: 1.3, huge: 1.6 };
@@ -84,7 +93,8 @@ export type Bridge = {
   discordMute?: () => Promise<{ ok?: boolean; error?: string }>;
   voiceWav?: (text: string, voiceName?: string) => Promise<{ wav?: string; error?: string }>;
   /** true: make VB-Cable the Windows default microphone (Discord on "Default" hears Jarvis). false: put your normal mic back. */
-  cableMic?: (on: boolean) => Promise<{ ok?: boolean; error?: string }>;
+  cableMic?: (on: boolean, opts?: { cableIn?: string; cableOut?: string; defaultIn?: string; defaultOut?: string }) => Promise<{ ok?: boolean; error?: string }>;
+  audioDevices?: () => Promise<{ inputs: string[]; outputs: string[] }>;
   openUrl?: (url: string) => void;
 };
 

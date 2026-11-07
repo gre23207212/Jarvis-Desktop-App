@@ -318,7 +318,8 @@ function Mate() {
     await toCall.setSinkId?.(cable.deviceId);
     toCall.volume = s?.volume ?? 1;
     // Point Windows' default mic at VB-Cable so Discord (on "Default") hears Jarvis, then switch it back after.
-    const swapped = (await b?.cableMic?.(true).catch(() => null))?.ok;
+    const audio = { cableIn: s?.cableIn ?? "", cableOut: s?.cableOut ?? "", defaultIn: s?.audioIn ?? "", defaultOut: s?.audioOut ?? "" };
+    const swapped = (await b?.cableMic?.(true, audio).catch(() => null))?.ok;
     try {
       if (swapped) await new Promise((res) => setTimeout(res, 900));
       const completed = new Promise<boolean>((resolve) => {
@@ -336,7 +337,7 @@ function Mate() {
       if (!(await completed)) return false;
       await new Promise((res) => setTimeout(res, 400));
     } finally {
-      if (swapped) await b?.cableMic?.(false).catch(() => null);
+      if (swapped) await b?.cableMic?.(false, audio).catch(() => null);
       setM("idle");
     }
     return true;

@@ -501,31 +501,50 @@ public static class JAudio {
       if (name.IndexOf(match, StringComparison.OrdinalIgnoreCase) >= 0) { string id; d.GetId(out id); return id; } }
     return "";
   }
+  public static string List(int flow) {
+    IMMDevs all; En().EnumAudioEndpoints(flow, 1, out all); int n; all.GetCount(out n); string o = "";
+    PKey k = new PKey(); k.fmt = new Guid("a45c254e-df1c-4efd-8020-67d146a850e0"); k.pid = 14;
+    for (int i = 0; i < n; i++) { IMMDev d; all.Item(i, out d); IPropStore s; d.OpenPropertyStore(0, out s); PVar v; s.GetValue(ref k, out v);
+      if (v.p != IntPtr.Zero) o += Marshal.PtrToStringUni(v.p) + "\n"; }
+    return o;
+  }
   public static void Set(string id, int role) { ((IPolicy)new PolicyClient()).SetDefaultEndpoint(id, role); }
 }`;
-let savedMics = null; // your mic for each Windows role (console, multimedia, communications)
-ipcMain.handle("cable-mic", async (_e, on) => {
+let savedAudio = null; // previous Windows default mic + speakers ids, per role
+const AUDIO_HEAD = () => `Add-Type -TypeDefinition @'\n${AUDIO_CS}\n'@\n`;
+ipcMain.handle("audio-devices", async () => {
+  if (!IS_WIN) return { inputs: [], outputs: [] };
+  const r = await ps(`${AUDIO_HEAD()}'IN'; [JAudio]::List(1); 'OUT'; [JAudio]::List(0)`);
+  const [, ins = "", outs = ""] = r.split(/^(?:IN|OUT)\r?$/m);
+  const clean = (t) => t.split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
+  return { inputs: clean(ins), outputs: clean(outs) };
+});
+// on: Windows default mic -> cable output, default speakers -> cable input. off: back to chosen defaults (or what was set before).
+ipcMain.handle("cable-mic", async (_e, on, opts = {}) => {
   if (!IS_WIN) return { error: "Windows only" };
-  const head = `Add-Type -TypeDefinition @'\n${AUDIO_CS}\n'@\n`;
   if (on) {
-    const r = await ps(`${head}$cable = [JAudio]::Find(1, 'CABLE Output')
-if (-not $cable) { 'nocable'; exit }
-$prev = @(0,1,2 | ForEach-Object { [JAudio]::Default(1, $_) }) -join '|'
-0,1,2 | ForEach-Object { [JAudio]::Set($cable, $_) }
-"ok:$prev"`);
+    const r = await ps(`${AUDIO_HEAD()}$mic = [JAudio]::Find(1, $env:JCO); $spk = [JAudio]::Find(0, $env:JCI)
+if (-not $mic) { 'nocable'; exit }
+$pm = @(0,1,2 | ForEach-Object { [JAudio]::Default(1, $_) }) -join '|'
+$ps = @(0,1,2 | ForEach-Object { [JAudio]::Default(0, $_) }) -join '|'
+0,1,2 | ForEach-Object { [JAudio]::Set($mic, $_); if ($spk) { [JAudio]::Set($spk, $_) } }
+"ok:$pm;$ps"`, { JCO: opts.cableOut || "CABLE Output", JCI: opts.cableIn || "CABLE Input" });
     if (r.includes("nocable")) return { error: "VB-Cable isn't installed" };
     const m = r.match(/ok:(.*)$/m);
-    if (!m) return { error: "Couldn't switch the microphone" };
-    if (!savedMics) savedMics = m[1]; // keep the very first one if called twice
+    if (!m) return { error: "Couldn't switch audio devices" };
+    if (!savedAudio) savedAudio = m[1];
     return { ok: true };
   }
-  if (!savedMics) return { ok: true };
-  const ids = savedMics;
-  savedMics = null;
-  const r = await ps(`${head}$ids = $env:JIDS.Split('|')
-for ($i = 0; $i -lt 3; $i++) { if ($ids[$i]) { [JAudio]::Set($ids[$i], $i) } }
-'ok'`, { JIDS: ids });
-  return r.endsWith("ok") ? { ok: true } : { error: "Couldn't restore the microphone" };
+  const [pm = "", pspk = ""] = (savedAudio || ";").split(";");
+  savedAudio = null;
+  const r = await ps(`${AUDIO_HEAD()}$pm = $env:JPM.Split('|'); $pspk = $env:JPS.Split('|')
+$mic = if ($env:JDI) { [JAudio]::Find(1, $env:JDI) } else { '' }
+$spk = if ($env:JDO) { [JAudio]::Find(0, $env:JDO) } else { '' }
+for ($i = 0; $i -lt 3; $i++) {
+  $a = if ($mic) { $mic } else { $pm[$i] }; if ($a) { [JAudio]::Set($a, $i) }
+  $b = if ($spk) { $spk } else { $pspk[$i] }; if ($b) { [JAudio]::Set($b, $i) } }
+'ok'`, { JPM: pm, JPS: pspk, JDI: opts.defaultIn || "", JDO: opts.defaultOut || "" });
+  return r.trim().endsWith("ok") ? { ok: true } : { error: "Couldn't restore audio devices" };
 });
 
 app.on("second-instance", () => mate && mate.show());
