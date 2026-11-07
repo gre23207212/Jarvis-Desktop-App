@@ -10,12 +10,20 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as MainframeRouteImport } from './routes/mainframe'
 import { Route as MateRouteImport } from './routes/mate'
+import { Route as TrayMenuRouteImport } from './routes/tray-menu'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
+import { Route as ApiTranscribeRouteImport } from './routes/api/transcribe'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MainframeRoute = MainframeRouteImport.update({
+  id: '/mainframe',
+  path: '/mainframe',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MateRoute = MateRouteImport.update({
@@ -23,40 +31,81 @@ const MateRoute = MateRouteImport.update({
   path: '/mate',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TrayMenuRoute = TrayMenuRouteImport.update({
+  id: '/tray-menu',
+  path: '/tray-menu',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiChatRoute = ApiChatRouteImport.update({
   id: '/api/chat',
   path: '/api/chat',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiTranscribeRoute = ApiTranscribeRouteImport.update({
+  id: '/api/transcribe',
+  path: '/api/transcribe',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/mainframe': typeof MainframeRoute
   '/mate': typeof MateRoute
+  '/tray-menu': typeof TrayMenuRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/transcribe': typeof ApiTranscribeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/mainframe': typeof MainframeRoute
   '/mate': typeof MateRoute
+  '/tray-menu': typeof TrayMenuRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/transcribe': typeof ApiTranscribeRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/mainframe': typeof MainframeRoute
   '/mate': typeof MateRoute
+  '/tray-menu': typeof TrayMenuRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/transcribe': typeof ApiTranscribeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/mate' | '/api/chat'
+  fullPaths:
+    | '/'
+    | '/mainframe'
+    | '/mate'
+    | '/tray-menu'
+    | '/api/chat'
+    | '/api/transcribe'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/mate' | '/api/chat'
-  id: '__root__' | '/' | '/mate' | '/api/chat'
+  to:
+    | '/'
+    | '/mainframe'
+    | '/mate'
+    | '/tray-menu'
+    | '/api/chat'
+    | '/api/transcribe'
+  id:
+    | '__root__'
+    | '/'
+    | '/mainframe'
+    | '/mate'
+    | '/tray-menu'
+    | '/api/chat'
+    | '/api/transcribe'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  MainframeRoute: typeof MainframeRoute
   MateRoute: typeof MateRoute
+  TrayMenuRoute: typeof TrayMenuRoute
   ApiChatRoute: typeof ApiChatRoute
+  ApiTranscribeRoute: typeof ApiTranscribeRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -68,11 +117,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/mainframe': {
+      id: '/mainframe'
+      path: '/mainframe'
+      fullPath: '/mainframe'
+      preLoaderRoute: typeof MainframeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/mate': {
       id: '/mate'
       path: '/mate'
       fullPath: '/mate'
       preLoaderRoute: typeof MateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tray-menu': {
+      id: '/tray-menu'
+      path: '/tray-menu'
+      fullPath: '/tray-menu'
+      preLoaderRoute: typeof TrayMenuRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/chat': {
@@ -82,13 +145,23 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiChatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/transcribe': {
+      id: '/api/transcribe'
+      path: '/api/transcribe'
+      fullPath: '/api/transcribe'
+      preLoaderRoute: typeof ApiTranscribeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  MainframeRoute: MainframeRoute,
   MateRoute: MateRoute,
+  TrayMenuRoute: TrayMenuRoute,
   ApiChatRoute: ApiChatRoute,
+  ApiTranscribeRoute: ApiTranscribeRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

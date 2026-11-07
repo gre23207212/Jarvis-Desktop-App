@@ -11,6 +11,7 @@ const Body = z.object({
     )
     .min(1)
     .max(40),
+  provider: z.enum(["builtin", "chatgpt"]).optional(),
 });
 
 const SYSTEM = `You are J.A.R.V.I.S. — Just A Rather Very Intelligent System — a calm, witty, impeccably polite British AI companion who lives on the user's screen.
@@ -23,7 +24,7 @@ export const Route = createFileRoute("/api/chat")({
         const parsed = Body.safeParse(await request.json().catch(() => null));
         if (!parsed.success) return Response.json({ error: "Invalid request" }, { status: 400 });
         const key = process.env["JARVIS_AI"];
-        if (key) {
+        if (key && parsed.data.provider !== "builtin") {
           const r = await fetch("https://api.openai.com/v1/chat/completions", {
             method: "POST",
             headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
