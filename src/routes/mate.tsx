@@ -642,6 +642,17 @@ function Mate() {
     const b = bridge();
     if (!b) return "That action needs the desktop app, sir — it works when Jarvis runs on your PC.";
     const mod = (id: string) => s.mods?.[id] !== false;
+    if (act.kind === "discord-control") {
+      const r = act.action === "mute" ? await b.discordMute?.() : await b.discordDeafen?.();
+      if (r?.ok) return act.action === "mute" ? "Your Discord microphone is muted, sir." : "Discord is deafened, sir.";
+      return `${r?.error || "I could not confirm the Discord control"} — please check Discord, sir.`;
+    }
+    if (act.kind === "discord-text") {
+      const saved = (s.discordServers ?? []).find((c) => c.name.toLowerCase().replace(/^#/, "") === act.channel.toLowerCase());
+      if (!saved) return `I don't have a saved Discord channel named ${act.channel}, sir. Add its text channel link in Mainframe Skills first.`;
+      const r = await b.discordMessage?.(saved.link, act.message);
+      return r?.ok ? `Sent your message to ${act.channel}, sir.` : `${r?.error || "I couldn't confirm the message was sent"}, sir.`;
+    }
     if (act.kind === "open") {
       const r = await b.openApp?.(act.app);
       return r?.ok ? `Opening ${r.name}, sir.` : `I couldn't find ${act.app} on this PC, sir.`;
