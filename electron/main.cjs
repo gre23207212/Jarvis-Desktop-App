@@ -7,6 +7,8 @@ const { app, BrowserWindow, Tray, nativeImage, screen, session, ipcMain, shell, 
 
 const BASE = process.env.JARVIS_URL || "https://pocket-jarvis-desktop-mate.lovable.app";
 const ICON = path.join(__dirname, process.platform === "win32" ? "icon.ico" : "icon.png");
+const REACTOR_PNG = path.join(__dirname, "icon.png");
+const trayIcon = () => nativeImage.createFromPath(REACTOR_PNG).resize({ width: process.platform === "darwin" ? 22 : 24, height: process.platform === "darwin" ? 22 : 24 });
 const W = 380, H = 520;
 
 let mate, menu, mainframe, tray;
@@ -124,7 +126,7 @@ function createMate() {
     y: workArea.y + workArea.height - H,
     frame: false, transparent: true, resizable: false, alwaysOnTop: true,
     skipTaskbar: false, hasShadow: false, backgroundColor: "#00000000",
-    title: "Jarvis", icon: ICON, webPreferences: { ...webPrefs, autoplayPolicy: "no-user-gesture-required", backgroundThrottling: false },
+    title: "Jarvis Desktop", icon: ICON, webPreferences: { ...webPrefs, autoplayPolicy: "no-user-gesture-required", backgroundThrottling: false },
   });
   mate.setAlwaysOnTop(true, "floating");
   mate.setVisibleOnAllWorkspaces(true);
@@ -1156,7 +1158,7 @@ app.whenReady().then(() => {
   if (process.platform === "darwin") app.askForMediaAccess?.(["microphone"]).catch(() => {});
   checkUpdates();
   setInterval(checkUpdates, 3 * 60 * 60 * 1000);
-  const img = nativeImage.createFromPath(path.join(__dirname, process.platform === "win32" ? "tray.ico" : "tray.png"));
+  const img = trayIcon();
   tray = new Tray(img);
   tray.setToolTip("Jarvis Desktop");
   tray.on("click", showMenu);
