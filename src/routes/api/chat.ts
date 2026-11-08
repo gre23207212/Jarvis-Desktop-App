@@ -28,24 +28,45 @@ export const Route = createFileRoute("/api/chat")({
         const parsed = Body.safeParse(await request.json().catch(() => null));
         if (!parsed.success) return Response.json({ error: "Invalid request" }, { status: 400 });
         const system = parsed.data.context ? `${SYSTEM}\n\n${parsed.data.context}` : SYSTEM;
-        const key = process.env["JARVIS_AI"] || process.env["OPENAI_API_KEY"];
-        if (!key) return Response.json({ error: "Jarvis AI is not configured. Set JARVIS_AI or OPENAI_API_KEY on the server." }, { status: 503 });
-        const r = await fetch("https://api.openai.com/v1/chat/completions", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            model: "gpt-4o-mini",
-            stream: true,
-            messages: [{ role: "system", content: system }, ...parsed.data.messages],
-          }),
-        });
-        if (!r.ok || !r.body) {
-          const msg = r.status === 401 ? "My access key was rejected, sir. Please check the AI key."
-            : r.status === 429 ? "AI requests are temporarily limited, sir."
-            : "I'm having trouble reaching my core systems, sir.";
-          return Response.json({ error: msg }, { status: r.status });
+        const key = process.env["JARVIS_AI"];
+        if (key && parsed.data.provider !== "builtin") {
+          const r = await fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              model: "gpt-4o-mini",
+              stream: true,
+              messages: [{ role: "system", content: system }, ...parsed.data.messages],
+            }),
+          });
+          if (!r.ok || !r.body) {
+            const msg = r.status === 401 ? "My access key was rejected, sir. Please check the ChatGPT key."
+              : r.status === 429 ? "ChatGPT says we're out of quota or going too fast, sir."
+              : "I'm having trouble reaching my core systems, sir.";
+            return Response.json({ error: msg }, { status: r.status });
+          }
+          return new Response(r.body, { headers: { "Content-Type": "text/event-stream" } });
         }
-        return new Response(r.body, { headers: { "Content-Type": "text/event-stream" } });
+        const { streamChatCompletion, GatewayError } = await import("@lovable.dev/ai-gateway");
+        try {
+          const stream = await streamChatCompletion({
+            model: "openai/gpt-6.1-terra",
+            messages: [{ role: "system", content: system }, ...parsed.data.messages],
+          });
+          return stream.toResponse();
+        } catch (e) {
+          if (e instanceof GatewayError) {
+            const status = e.httpStatus ?? 500;
+            const msg =
+              status === 402
+                ? "My power reserves are depleted, sir. AI credits need topping up."
+                : status === 429
+                  ? "Too many requests at once, sir. Give me a moment."
+                  : "I'm having trouble reaching my core systems, sir.";
+            return Response.json({ error: msg }, { status });
+          }
+          throw e;
+        }
       },
     },
   },
