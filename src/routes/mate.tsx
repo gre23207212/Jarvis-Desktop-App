@@ -453,6 +453,8 @@ function Mate() {
     stopSpeech();
     const generation = speechGeneration.current;
     const devs = await navigator.mediaDevices.enumerateDevices();
+    const systemDevices = await b?.audioDevices?.().catch(() => null);
+    if (!systemDevices?.inputs.some((name) => /cable output/i.test(name)) || !systemDevices?.outputs.some((name) => /cable input/i.test(name))) { cableFailure = "VB-CABLE must provide both CABLE Output (recording) and CABLE Input (playback). Install or enable both devices and restart Jarvis."; return false; }
     const cable = s.cableIn ? findAudioOutput(devs, s.cableIn) : devs.find((d) => d.kind === "audiooutput" && !["default", "communications"].includes(d.deviceId) && /cable input/i.test(d.label));
     if (!cable) { cableFailure = "CABLE Input playback device was not found. Check VB-CABLE installation."; return false; }
     const voices = "speechSynthesis" in window ? speechSynthesis.getVoices() : [];
@@ -466,7 +468,7 @@ function Mate() {
     const src = URL.createObjectURL(blob);
     const toCall = new Audio(src) as HTMLAudioElement & { setSinkId?: (id: string) => Promise<void> };
     const local = new Audio(src) as HTMLAudioElement & { setSinkId?: (id: string) => Promise<void> };
-    const audio = { cableIn: s.cableIn, cableOut: s.cableOut, defaultIn: s.audioIn, defaultOut: s.audioOut, preserveOutput: true };
+    const audio = { cableIn: s.cableIn, cableOut: s.cableOut, preserveOutput: true };
     let swapped = false;
     try {
       // Route only call speech into the cable; leave speakers/Discord output alone.
