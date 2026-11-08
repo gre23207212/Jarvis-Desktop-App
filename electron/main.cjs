@@ -401,6 +401,23 @@ ipcMain.handle("discord-join", async (_e, link) => {
   // Discord stops on a "Join Voice" preview; bring it forward and click that button (centre of the chat area).
   // The button moves depending on who's already in the call, so find it by its name instead of a fixed spot.
   const r = await ps(`Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
+Add-Type -AssemblyName System.Windows.Forms
+function Move-CursorAndClick($item) {
+  $rect = $item.Current.BoundingRectangle
+  if ($rect.IsEmpty -or $rect.Width -lt 2 -or $rect.Height -lt 2) { throw 'Discord control is not visible' }
+  $start = [System.Windows.Forms.Cursor]::Position
+  $endX = [int]($rect.Left + $rect.Width / 2)
+  $endY = [int]($rect.Top + $rect.Height / 2)
+  for ($j=1; $j -le 24; $j++) {
+    $t=$j/24.0; $ease=$t*$t*(3-2*$t)
+    [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point([int]($start.X+($endX-$start.X)*$ease),[int]($start.Y+($endY-$start.Y)*$ease))
+    Start-Sleep -Milliseconds 16
+  }
+  Add-Type -TypeDefinition 'using System;using System.Runtime.InteropServices;public class JClick { [DllImport("user32.dll")] public static extern void mouse_event(uint flags,uint x,uint y,uint data,UIntPtr extra); }' -ErrorAction SilentlyContinue
+  [JClick]::mouse_event(2,0,0,0,[UIntPtr]::Zero)
+  Start-Sleep -Milliseconds 80
+  [JClick]::mouse_event(4,0,0,0,[UIntPtr]::Zero)
+}
 Add-Type 'using System;using System.Runtime.InteropServices;public class D{[DllImport("user32.dll")]public static extern bool SetForegroundWindow(IntPtr h);[DllImport("user32.dll")]public static extern bool ShowWindow(IntPtr h,int c);[DllImport("user32.dll")]public static extern bool SetCursorPos(int x,int y);[DllImport("user32.dll")]public static extern void mouse_event(int f,int x,int y,int d,int e);}'
 $p = $null
 for ($i = 0; $i -lt 20 -and -not $p; $i++) { Start-Sleep -Milliseconds 500; $p = Get-Process Discord -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1 }
@@ -429,10 +446,27 @@ for ($i = 0; $i -lt 24; $i++) {
 ipcMain.handle("discord-mute", async () => {
   if (!IS_WIN) return { error: "Discord muting is Windows only" };
   const r = await ps(`Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
+Add-Type -AssemblyName System.Windows.Forms
+function Move-CursorAndClick($item) {
+  $rect = $item.Current.BoundingRectangle
+  if ($rect.IsEmpty -or $rect.Width -lt 2 -or $rect.Height -lt 2) { throw 'Discord control is not visible' }
+  $start = [System.Windows.Forms.Cursor]::Position
+  $endX = [int]($rect.Left + $rect.Width / 2)
+  $endY = [int]($rect.Top + $rect.Height / 2)
+  for ($j=1; $j -le 24; $j++) {
+    $t=$j/24.0; $ease=$t*$t*(3-2*$t)
+    [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point([int]($start.X+($endX-$start.X)*$ease),[int]($start.Y+($endY-$start.Y)*$ease))
+    Start-Sleep -Milliseconds 16
+  }
+  Add-Type -TypeDefinition 'using System;using System.Runtime.InteropServices;public class JClick { [DllImport("user32.dll")] public static extern void mouse_event(uint flags,uint x,uint y,uint data,UIntPtr extra); }' -ErrorAction SilentlyContinue
+  [JClick]::mouse_event(2,0,0,0,[UIntPtr]::Zero)
+  Start-Sleep -Milliseconds 80
+  [JClick]::mouse_event(4,0,0,0,[UIntPtr]::Zero)
+}
 Add-Type 'using System;using System.Runtime.InteropServices;public class DM{[DllImport("user32.dll")]public static extern bool SetForegroundWindow(IntPtr h);[DllImport("user32.dll")]public static extern bool ShowWindow(IntPtr h,int c);}'
 $p = Get-Process Discord -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1
 if (-not $p) { 'nodiscord'; exit }
-[DM]::ShowWindow($p.MainWindowHandle, 9) | Out-Null
+[DM]::ShowWindow($p.MainWindowHandle, 3) | Out-Null
 [DM]::SetForegroundWindow($p.MainWindowHandle) | Out-Null
 function Find-Mic($root, $label) {
   $items = $root.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
@@ -451,7 +485,7 @@ for ($i = 0; $i -lt 12; $i++) {
   if ($clicked) { continue }
   $button = Find-Mic $root 'Mute'
   if ($button) {
-    try { $button.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); $clicked = $true } catch {
+    try { Move-CursorAndClick $button; $clicked = $true } catch {
       try {
         $toggle = $button.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
         if ($toggle.Current.ToggleState -eq [System.Windows.Automation.ToggleState]::Off) { $toggle.Toggle() }
@@ -835,10 +869,27 @@ foreach ($b in 'chrome','msedge','brave','firefox') {
 ipcMain.handle("discord-deafen", async () => {
   if (!IS_WIN) return { error: "Discord deafening is Windows only" };
   const r = await ps(`Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
+Add-Type -AssemblyName System.Windows.Forms
+function Move-CursorAndClick($item) {
+  $rect = $item.Current.BoundingRectangle
+  if ($rect.IsEmpty -or $rect.Width -lt 2 -or $rect.Height -lt 2) { throw 'Discord control is not visible' }
+  $start = [System.Windows.Forms.Cursor]::Position
+  $endX = [int]($rect.Left + $rect.Width / 2)
+  $endY = [int]($rect.Top + $rect.Height / 2)
+  for ($j=1; $j -le 24; $j++) {
+    $t=$j/24.0; $ease=$t*$t*(3-2*$t)
+    [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point([int]($start.X+($endX-$start.X)*$ease),[int]($start.Y+($endY-$start.Y)*$ease))
+    Start-Sleep -Milliseconds 16
+  }
+  Add-Type -TypeDefinition 'using System;using System.Runtime.InteropServices;public class JClick { [DllImport("user32.dll")] public static extern void mouse_event(uint flags,uint x,uint y,uint data,UIntPtr extra); }' -ErrorAction SilentlyContinue
+  [JClick]::mouse_event(2,0,0,0,[UIntPtr]::Zero)
+  Start-Sleep -Milliseconds 80
+  [JClick]::mouse_event(4,0,0,0,[UIntPtr]::Zero)
+}
 Add-Type 'using System;using System.Runtime.InteropServices;public class DD{[DllImport("user32.dll")]public static extern bool SetForegroundWindow(IntPtr h);[DllImport("user32.dll")]public static extern bool ShowWindow(IntPtr h,int c);}'
 $p = Get-Process Discord -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1
 if (-not $p) { 'nodiscord'; exit }
-[DD]::ShowWindow($p.MainWindowHandle, 9) | Out-Null
+[DD]::ShowWindow($p.MainWindowHandle, 3) | Out-Null
 [DD]::SetForegroundWindow($p.MainWindowHandle) | Out-Null
 function Find-DN($root, $label) {
   $items = $root.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
@@ -855,7 +906,7 @@ for ($i = 0; $i -lt 12; $i++) {
   if (Find-DN $root 'Undeafen') { 'ok'; exit }
   if ($clicked) { continue }
   $button = Find-DN $root 'Deafen'
-  if ($button) { try { $button.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); $clicked = $true } catch { try { $button.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Toggle(); $clicked = $true } catch {} } }
+  if ($button) { try { Move-CursorAndClick $button; $clicked = $true } catch { try { $button.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Toggle(); $clicked = $true } catch {} } }
 }
 'notconfirmed'`);
   return r.endsWith("ok") ? { ok: true } : { error: "Couldn't confirm Discord deafen state" };
@@ -867,13 +918,30 @@ ipcMain.handle("discord-message", async (_e, link, text) => {
   const msg = String(text || "").replace(/\s+/g, " ").trim().slice(0, 1800);
   if (!m || !msg) return { error: "I need a saved channel link and a message, sir." };
   await shell.openExternal(`discord://-/channels/${m[1]}/${m[2]}`).catch(() => {});
-  if (!IS_WIN) return { ok: true, typed: false };
+  if (!IS_WIN) return { error: "Visible Discord typing is supported on Windows only." };
   const r = await ps(`Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
+Add-Type -AssemblyName System.Windows.Forms
+function Move-CursorAndClick($item) {
+  $rect = $item.Current.BoundingRectangle
+  if ($rect.IsEmpty -or $rect.Width -lt 2 -or $rect.Height -lt 2) { throw 'Discord control is not visible' }
+  $start = [System.Windows.Forms.Cursor]::Position
+  $endX = [int]($rect.Left + $rect.Width / 2)
+  $endY = [int]($rect.Top + $rect.Height / 2)
+  for ($j=1; $j -le 24; $j++) {
+    $t=$j/24.0; $ease=$t*$t*(3-2*$t)
+    [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point([int]($start.X+($endX-$start.X)*$ease),[int]($start.Y+($endY-$start.Y)*$ease))
+    Start-Sleep -Milliseconds 16
+  }
+  Add-Type -TypeDefinition 'using System;using System.Runtime.InteropServices;public class JClick { [DllImport("user32.dll")] public static extern void mouse_event(uint flags,uint x,uint y,uint data,UIntPtr extra); }' -ErrorAction SilentlyContinue
+  [JClick]::mouse_event(2,0,0,0,[UIntPtr]::Zero)
+  Start-Sleep -Milliseconds 80
+  [JClick]::mouse_event(4,0,0,0,[UIntPtr]::Zero)
+}
 Add-Type 'using System;using System.Runtime.InteropServices;public class DMsg{[DllImport("user32.dll")]public static extern bool SetForegroundWindow(IntPtr h);[DllImport("user32.dll")]public static extern bool ShowWindow(IntPtr h,int c);}'
 $p = $null
 for ($i = 0; $i -lt 20 -and -not $p; $i++) { Start-Sleep -Milliseconds 500; $p = Get-Process Discord -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1 }
 if (-not $p) { 'nodiscord'; exit }
-[DMsg]::ShowWindow($p.MainWindowHandle, 9) | Out-Null
+[DMsg]::ShowWindow($p.MainWindowHandle, 3) | Out-Null
 [DMsg]::SetForegroundWindow($p.MainWindowHandle) | Out-Null
 Start-Sleep -Milliseconds 1500
 $root = [System.Windows.Automation.AutomationElement]::FromHandle($p.MainWindowHandle)
@@ -884,7 +952,7 @@ for ($i = 0; $i -lt 12 -and -not $box; $i++) {
   foreach ($c in $cands) { if ($c.Current.Name -match 'Message' -and -not $c.Current.IsOffscreen) { $box = $c; break } }
 }
 if (-not $box) { 'nobox'; exit }
-try { $box.SetFocus() } catch {}
+try { Move-CursorAndClick $box; $box.SetFocus() } catch {}
 Start-Sleep -Milliseconds 300
 $w = New-Object -ComObject WScript.Shell
 foreach ($ch in $env:JMSG.ToCharArray()) { $k = [string]$ch; if ('+^%~(){}[]'.Contains($k)) { $k = '{' + $k + '}' }; $w.SendKeys($k); Start-Sleep -Milliseconds 18 }
@@ -898,6 +966,23 @@ $w.SendKeys('{ENTER}')
 ipcMain.handle("discord-audio-settings", async (_e, input, output) => {
   if (!IS_WIN) return { error: "Discord settings automation is Windows only" };
   const r = await ps(`Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
+Add-Type -AssemblyName System.Windows.Forms
+function Move-CursorAndClick($item) {
+  $rect = $item.Current.BoundingRectangle
+  if ($rect.IsEmpty -or $rect.Width -lt 2 -or $rect.Height -lt 2) { throw 'Discord control is not visible' }
+  $start = [System.Windows.Forms.Cursor]::Position
+  $endX = [int]($rect.Left + $rect.Width / 2)
+  $endY = [int]($rect.Top + $rect.Height / 2)
+  for ($j=1; $j -le 24; $j++) {
+    $t=$j/24.0; $ease=$t*$t*(3-2*$t)
+    [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point([int]($start.X+($endX-$start.X)*$ease),[int]($start.Y+($endY-$start.Y)*$ease))
+    Start-Sleep -Milliseconds 16
+  }
+  Add-Type -TypeDefinition 'using System;using System.Runtime.InteropServices;public class JClick { [DllImport("user32.dll")] public static extern void mouse_event(uint flags,uint x,uint y,uint data,UIntPtr extra); }' -ErrorAction SilentlyContinue
+  [JClick]::mouse_event(2,0,0,0,[UIntPtr]::Zero)
+  Start-Sleep -Milliseconds 80
+  [JClick]::mouse_event(4,0,0,0,[UIntPtr]::Zero)
+}
 Add-Type 'using System;using System.Runtime.InteropServices;public class DSet{[DllImport("user32.dll")]public static extern bool SetForegroundWindow(IntPtr h);[DllImport("user32.dll")]public static extern bool ShowWindow(IntPtr h,int c);}'
 $p = Get-Process Discord -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1
 if (-not $p) { 'nodiscord'; exit }
