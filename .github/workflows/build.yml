@@ -29,6 +29,11 @@ jobs:
           node-version: 22
       - name: Install dependencies
         run: npm install --no-audit --no-fund
+      - name: Generate Windows reactor icons
+        if: matrix.target == 'win'
+        run: |
+          python -m pip install --disable-pip-version-check pillow
+          python scripts/generate-icons.py
       - name: Validate Electron main process syntax
         run: node --check electron/main.cjs
       - name: Build web app
