@@ -692,15 +692,37 @@ foreach ($p in $procs) {
 }
 'ok'`;
 
+// Move a matching top-level window using native Windows coordinates, preserving its size.
+// This does not hijack the user's mouse or simulate a drag.
+const MOVE_WINDOW_PS = `
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type 'using System;using System.Runtime.InteropServices;public class JWM { [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h,out RECT r); [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr h,IntPtr after,int x,int y,int cx,int cy,uint flags); [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h,int cmd); [StructLayout(LayoutKind.Sequential)] public struct RECT { public int Left,Top,Right,Bottom; } }'
+$procs = @(Get-Process | Where-Object { $_.MainWindowHandle -ne 0 -and $_.MainWindowTitle -and $_.ProcessName -match $env:JWA })
+if (-not $procs.Count) { 'notfound'; exit }
+$monitors = @([System.Windows.Forms.Screen]::AllScreens)
+$target = if ($env:JWACT -eq 'move-main') { $monitors | Where-Object { $_.Primary } | Select-Object -First 1 } else { $monitors | Where-Object { -not $_.Primary } | Select-Object -First 1 }
+if (-not $target) { 'nomonitor'; exit }
+$p = $procs[0]
+[JWM]::ShowWindow($p.MainWindowHandle,9) | Out-Null
+$rect = New-Object JWM+RECT
+if (-not [JWM]::GetWindowRect($p.MainWindowHandle,[ref]$rect)) { 'failed'; exit }
+$w = [Math]::Min([Math]::Max(200,$rect.Right-$rect.Left),$target.WorkingArea.Width)
+$h = [Math]::Min([Math]::Max(150,$rect.Bottom-$rect.Top),$target.WorkingArea.Height)
+$x = $target.WorkingArea.X + [int](($target.WorkingArea.Width-$w)/2)
+$y = $target.WorkingArea.Y + [int](($target.WorkingArea.Height-$h)/2)
+if ([JWM]::SetWindowPos($p.MainWindowHandle,[IntPtr]::Zero,$x,$y,$w,$h,0x0044)) { 'ok' } else { 'failed' }
+`;
+
 ipcMain.handle("window-control", async (_e, action, appQ) => {
-  const act = ["minimize", "maximize", "focus", "close"].includes(String(action)) ? String(action) : "";
+  const act = ["minimize", "maximize", "focus", "close", "move-main", "move-secondary"].includes(String(action)) ? String(action) : "";
   const q = String(appQ || "").trim();
   if (!act || !q) return { error: "Which app, sir?" };
   try {
     if (IS_WIN) {
-      const r = await ps(WAPP, { JWA: q.replace(/[.*+?^${}()|[\]\\]/g, ".*"), JWACT: act });
-      return r.includes("notfound") ? { error: "notfound" } : { ok: true };
+      const r = await ps(act.startsWith("move-") ? MOVE_WINDOW_PS : WAPP, { JWA: q.replace(/[.*+?^${}()|[\]\\]/g, ".*"), JWACT: act });
+      return r.includes("notfound") ? { error: "notfound" } : r.includes("nomonitor") ? { error: "No secondary monitor is connected." } : r.includes("failed") ? { error: "Windows could not move that application." } : { ok: true };
     }
+    if (act.startsWith("move-")) return { error: "Moving windows between monitors is currently supported on Windows." };
     if (process.platform === "darwin") {
       const name = q.replace(/"/g, "");
       if (act === "focus") { await osa(`tell application "${name}" to activate`); return { ok: true }; }
