@@ -12,8 +12,12 @@ export function UpdateButton({ className = "", label = "UPDATE NOW" }: { classNa
 
   const run = async () => {
     setBusy(true); setError(""); setStatus({ text: "Preparing update…", pct: 0 });
-    const r = await bridge()?.installUpdate?.();
-    if (!r?.ok) { setBusy(false); setStatus(null); setError(r?.error || "Updates run in the desktop app."); }
+    try {
+      const r = await bridge()?.installUpdate?.();
+      if (!r?.ok) { setBusy(false); setStatus(null); setError(r?.error || "Updates run in the desktop app."); }
+    } catch (err) {
+      setBusy(false); setStatus(null); setError(err instanceof Error ? err.message : "Update failed. Please try again.");
+    }
   };
 
   return (
@@ -24,7 +28,7 @@ export function UpdateButton({ className = "", label = "UPDATE NOW" }: { classNa
       </button>
       {status && (
         <div data-testid="update-progress" className="mt-1.5">
-          <div className="h-1 w-full bg-primary/15"><div className="h-1 bg-primary transition-[width] duration-300" style={{ width: `${Math.round(status.pct * 100)}%` }} /></div>
+          <div className="h-1 w-full bg-primary/15"><div className="h-1 bg-primary transition-[width] duration-300" style={{ width: `${Math.round((status.pct ?? 0) * 100)}%` }} /></div>
           <p className="mt-1 font-mono text-[10px] text-term-dim">{status.text}</p>
         </div>
       )}
