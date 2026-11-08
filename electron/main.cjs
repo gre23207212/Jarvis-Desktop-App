@@ -1169,7 +1169,7 @@ async function checkUpdates() {
     const tag = String(j.tag_name || "").trim();
     if (!tag) return null;
     const newer = isNewerTag(tag, app.getVersion());
-    const asset = (j.assets || []).find((a) => /\.zip$/i.test(a.name) && /win/i.test(a.name)) || (j.assets || []).find((a) => /\.zip$/i.test(a.name));
+    const asset = (j.assets || []).find((a) => /^Jarvis-Desktop-win32-x64-v[\d.]+\.zip$/i.test(a.name));
     const payload = { tag, url: j.html_url || `https://github.com/${REPO}/releases/latest`, newer, download: asset ? asset.browser_download_url : null, size: asset ? asset.size : 0 };
     if (newer && mate && !mate.isDestroyed()) mate.webContents.send("cmd", "update-available", payload);
     if (newer && tray) tray.setToolTip(`Jarvis Desktop — v${tag.replace(/^v/, "")} ready on GitHub`);
@@ -1196,7 +1196,7 @@ ipcMain.handle("install-update", async (e) => {
     if (!IS_WIN || !app.isPackaged) return { error: "One-click updates work in the installed Windows app." };
     const info = await checkUpdates();
     if (!info || !info.newer) return { error: "You're already on the latest release, sir." };
-    if (!info.download) return { error: `Release ${info.tag} has no .zip attached on GitHub.` };
+    if (!info.download) return { error: `Release ${info.tag} has no compatible Windows x64 package attached on GitHub.` };
     const work = path.join(os.tmpdir(), `jarvis-update-${info.tag.replace(/[^\w.-]/g, "")}`);
     await fs.promises.rm(work, { recursive: true, force: true });
     fs.mkdirSync(work, { recursive: true });
