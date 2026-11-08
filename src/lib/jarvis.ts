@@ -96,7 +96,7 @@ export const DEFAULTS: Settings = {
 };
 
 export const SIZES: Record<Size, number> = { small: 0.7, medium: 1, large: 1.3, huge: 1.6 };
-export const VERSION = "1.5.0";
+export const VERSION = "1.5.1";
 const KEY = "jarvis-settings-v2";
 
 export function loadSettings(): Settings {
