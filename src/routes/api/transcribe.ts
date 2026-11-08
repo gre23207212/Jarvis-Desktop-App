@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+// Turns a short voice clip into text with the built-in speech-to-text model.
 export const Route = createFileRoute("/api/transcribe")({
   server: {
     handlers: {
@@ -7,18 +8,23 @@ export const Route = createFileRoute("/api/transcribe")({
         const form = await request.formData().catch(() => null);
         const file = form?.get("audio");
         if (!(file instanceof File) || file.size > 5_000_000) return Response.json({ error: "Invalid audio" }, { status: 400 });
-        const key = process.env["JARVIS_AI"] || process.env["OPENAI_API_KEY"];
-        if (!key) return Response.json({ error: "Speech recognition is not configured." }, { status: 503 });
-        const payload = new FormData();
-        payload.append("file", file, file.name || "clip.webm");
-        payload.append("model", "whisper-1");
-        payload.append("language", "en");
-        const r = await fetch("https://api.openai.com/v1/audio/transcriptions", {
-          method: "POST", headers: { Authorization: `Bearer ${key}` }, body: payload,
-        });
-        if (!r.ok) return Response.json({ error: "I couldn't make that out, sir." }, { status: r.status });
-        const result = await r.json() as { text?: string };
-        return Response.json({ text: result.text ?? "" });
+        const { transcribeAudio, GatewayError } = await import("@lovable.dev/ai-gateway");
+        try {
+          const r = await transcribeAudio({
+            model: "openai/gpt-transcribe",
+            file: new File([file], "clip.webm", { type: file.type || "audio/webm" }),
+            language: "en",
+            response_format: "json",
+          });
+          const text = typeof r === "string" ? r : ((r as { text?: string }).text ?? "");
+          return Response.json({ text });
+        } catch (e) {
+          if (e instanceof GatewayError) {
+            const status = e.httpStatus ?? 500;
+            return Response.json({ error: status === 402 ? "My hearing needs AI credits topping up, sir." : "I couldn't make that out, sir." }, { status });
+          }
+          throw e;
+        }
       },
     },
   },
