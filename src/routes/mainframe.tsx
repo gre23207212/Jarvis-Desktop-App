@@ -24,7 +24,7 @@ export const Route = createFileRoute("/mainframe")({
 });
 
 const BRAINS: { value: Brain; label: string; note: string }[] = [
-  { value: "local", label: "Local · Gemma", note: "Free, runs on this PC" },
+  { value: "local", label: "Local AI", note: "Free, runs on this PC" },
   { value: "builtin", label: "Built-in cloud", note: "Free, no setup" },
   { value: "chatgpt", label: "ChatGPT", note: "Project's ChatGPT key" },
   { value: "custom", label: "Custom", note: "Your own API key & model" },
@@ -244,7 +244,7 @@ function Mainframe() {
     if (r.error) { setDl(null); setStatus("✗ " + r.error); return; }
     setLocal(await b.localStatus!(s.localModel));
     setDl(null);
-    setStatus("✓ Gemma is installed. Jarvis now thinks on your PC.");
+    setStatus("✓ Local AI is installed. Jarvis can now think on your PC.");
   };
 
   const loadEl = async () => {
@@ -326,7 +326,7 @@ function Mainframe() {
               {s.brain === "local" && (
                 <div className="mt-2 space-y-2">
                   <div className="grid grid-cols-2 gap-2">
-                    <input className={field} value={s.localModel} onChange={(e) => set({ localModel: e.target.value })} placeholder="gemma4:e4b" aria-label="Local model" />
+                    <input className={field} value={s.localModel} onChange={(e) => set({ localModel: e.target.value })} placeholder="Local model name" aria-label="Local model" />
                     <input className={field} value={s.localUrl} onChange={(e) => set({ localUrl: e.target.value })} aria-label="Local address" />
                   </div>
                   <p className="font-mono text-[10px] text-term-dim">
@@ -450,6 +450,18 @@ function Mainframe() {
                 </div>
                 <Toggle on={s.alwaysOnTop} onChange={(v) => { set({ alwaysOnTop: v }); b?.cmd("always-on-top", v); }} label="ALWAYS ON TOP" />
                 <Toggle on={s.startup} onChange={(v) => { set({ startup: v }); b?.cmd("startup", v); }} label="START WITH WINDOWS" />
+                <div className="mt-3 border-t border-primary/20 pt-3"><div className="mb-2 font-hud text-[11px] tracking-wider text-primary">DISCORD RICH PRESENCE</div>
+              <Toggle testId="rpc-toggle" on={s.discordRpc} onChange={(v) => set({ discordRpc: v })} label="BROADCAST JARVIS AS YOUR ACTIVE APP" note="arc-reactor badge + live activity" />
+              <div className="mt-2 grid grid-cols-[2fr_1fr] gap-2">
+                <input data-testid="rpc-appid-input" className={field} type="password" autoComplete="off" value={s.discordAppId} onChange={(e) => set({ discordAppId: e.target.value.replace(/\D/g, "").slice(0, 25) })} placeholder="Discord Application ID" aria-label="Discord application ID" />
+                <input data-testid="rpc-asset-input" className={field} value={s.rpcAsset} onChange={(e) => set({ rpcAsset: e.target.value.trim().slice(0, 40) || "jarvis" })} placeholder="Asset key (jarvis)" aria-label="Rich presence asset key" />
+              </div>
+              <button data-testid="rpc-test-button" className={`${btn} mt-2`} onClick={testPresence}>TEST PRESENCE</button>
+              {rpcMsg && <p data-testid="rpc-status" className="mt-2 break-words font-mono text-[10px] text-term-reply">{rpcMsg}</p>}
+              <p className="mt-1 font-mono text-[10px] text-term-dim">One-time: create a free app at discord.com/developers → Rich Presence → Art Assets, upload the arc-reactor badge, name it exactly like the asset key above. Your Application ID is kept hidden in this settings field.</p>
+                </div>
+
+
                 <div className="flex items-center gap-2">
                   <button data-testid="snap-toggle-button" className={btn} onClick={() => b?.snapToActive?.()}>DOCK TO ACTIVE WINDOW</button>
                   <button data-testid="unsnap-toggle-button" className={btn} onClick={() => { b?.unsnap?.(); b?.orbit?.(false); }}>FREE-FLOAT (UNSNAP)</button>
@@ -510,17 +522,6 @@ function Mainframe() {
                 </li>)}
               </ul>
               <p className="mt-2 font-mono text-[10px] text-term-dim">Voice channels relay your spoken messages; text-channel links let Jarvis type messages ("send a message to #general saying I'm on my way").</p>
-            </Section>
-
-            <Section title="DISCORD RICH PRESENCE">
-              <Toggle testId="rpc-toggle" on={s.discordRpc} onChange={(v) => set({ discordRpc: v })} label="BROADCAST JARVIS AS YOUR ACTIVE APP" note="arc-reactor badge + live activity" />
-              <div className="mt-2 grid grid-cols-[2fr_1fr] gap-2">
-                <input data-testid="rpc-appid-input" className={field} value={s.discordAppId} onChange={(e) => set({ discordAppId: e.target.value.replace(/\D/g, "").slice(0, 25) })} placeholder="Discord Application ID" aria-label="Discord application ID" />
-                <input data-testid="rpc-asset-input" className={field} value={s.rpcAsset} onChange={(e) => set({ rpcAsset: e.target.value.trim().slice(0, 40) || "jarvis" })} placeholder="Asset key (jarvis)" aria-label="Rich presence asset key" />
-              </div>
-              <button data-testid="rpc-test-button" className={`${btn} mt-2`} onClick={testPresence}>TEST PRESENCE</button>
-              {rpcMsg && <p data-testid="rpc-status" className="mt-2 break-words font-mono text-[10px] text-term-reply">{rpcMsg}</p>}
-              <p className="mt-1 font-mono text-[10px] text-term-dim">One-time: create a free app at discord.com/developers → Rich Presence → Art Assets, upload the arc-reactor badge, name it exactly like the asset key above. The default Application ID is already wired.</p>
             </Section>
 
             <Section title="REPLAY BUFFER">
