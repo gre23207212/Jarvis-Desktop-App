@@ -29,6 +29,8 @@ jobs:
           node-version: 22
       - name: Install dependencies
         run: npm install --no-audit --no-fund
+      - name: Validate Electron main process syntax
+        run: node --check electron/main.cjs
       - name: Build web app
         run: npm run build
       - name: Package ${{ matrix.target }}
