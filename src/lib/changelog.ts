@@ -90,6 +90,7 @@ export function selfQuery(text: string): SelfQuery | null {
   const q = t.trim();
   if (/^(?:(?:are there|is there|got|have you got|do you have)\s+)?(?:any|an?)\s+(?:new\s+)?updates?(?:\s+(?:for (?:you|jarvis)|available))?[\s?.!]*$/.test(q) || /\bcheck (?:for )?(?:new |any )?updates?\b|\bupdate yourself\b|\bnew version (?:out|available)\b|\bupdates? (?:for (?:you|jarvis)|available)\b/.test(t)) return "updates";
   if (/^what(?:'s| is) new(?:,? jarvis)?[\s?.!]*$/.test(q) || /\bwhat(?:'s| is| has)\s+(?:new|changed)\s+(?:with you|in (?:you|this (?:version|update)|the (?:latest |last )?(?:update|version)))\b|\bwhat did (?:the|your) (?:last )?update\b|\b(?:latest|recent) changes\b|\bpatch notes\b|\bchangelog\b/.test(t)) return "whats-new";
+  if (/\b(?:is|was)\s+(?:version\s+)?v?\d+\.\d+(?:\.\d+)?\s+(?:the\s+)?(?:newest|latest|current|most recent)\b|\b(?:latest|newest|current)\s+(?:jarvis\s+)?version\b|\b(?:check|look up|find out)\b.*\b(?:github|release|version)\b|\b(?:github|releases?)\b.*\b(?:latest|newest|current|version)\b/.test(t)) return "updates";
   if (/\bwhat\s+version\b|\bwhich\s+version\b|\bversion (?:are|r) (?:you|u)\b|\byour version\b|\bversion number\b/.test(t)) return "version";
   if (/\bwhat (?:can|could) (?:you|u) do\b|\bwhat are (?:your|ur) (?:skills|features|abilities)\b|\bwhat do you do\b|\bhelp me with\b.*\byou\b/.test(t)) return "capabilities";
   return null;
