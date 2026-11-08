@@ -96,7 +96,7 @@ export const DEFAULTS: Settings = {
 };
 
 export const SIZES: Record<Size, number> = { small: 0.7, medium: 1, large: 1.3, huge: 1.6 };
-export const VERSION = "1.5.2";
+export const VERSION = "1.5.3";
 const KEY = "jarvis-settings-v2";
 
 export function loadSettings(): Settings {
@@ -192,6 +192,8 @@ export type Action =
   | { kind: "apps" }
   | { kind: "spotify"; query: string }
   | { kind: "discord"; message: string; server?: string | undefined }
+  | { kind: "discord-control"; action: "mute" | "deafen" }
+  | { kind: "discord-text"; channel: string; message: string }
   | { kind: "media"; action: MediaAction }
   | { kind: "window"; action: WindowAction; app: string }
   | { kind: "orbit"; on: boolean }
@@ -256,6 +258,10 @@ export function parseAction(text: string): Action | null {
   const s = text.trim().replace(/[.!?]+$/, "");
   const polite = "(?:(?:can|could|would) you |please |jarvis,? )*";
   let m: RegExpMatchArray | null;
+  if (/^(?:(?:hey )?jarvis[, ]*|please |can you |could you )*(?:mute (?:me|my mic|my microphone)(?: on discord)?|discord mute)$/i.test(s)) return { kind: "discord-control", action: "mute" };
+  if (/^(?:(?:hey )?jarvis[, ]*|please |can you |could you )*(?:deafen (?:me)?(?: on discord)?|discord deafen)$/i.test(s)) return { kind: "discord-control", action: "deafen" };
+  m = s.match(/^(?:(?:hey )?jarvis[, ]*|please |can you |could you )*(?:send|post|write|type)\s+(?:a\s+)?message\s+to\s+(?:#|the\s+)?([\w-]+)(?:\s+channel)?\s+(?:saying|that says|with the text)\s+(.+)$/i);
+  if (m) return { kind: "discord-text", channel: m[1], message: m[2].trim() };
   const vc = /\b(?:join|hop|jump|get|go)\b(?:\s+(?:in|into|on|onto))?.*?\b(?:discord|vc|voice|call)\b/i;
   if (vc.test(s) && /\b(?:discord|vc|voice|call)\b/i.test(s)) {
     const sm = s.match(/\b(?:on|in)\s+(?:the\s+|my\s+)?([\w'-]+(?:\s[\w'-]+){0,2})\s+server\b/i);
