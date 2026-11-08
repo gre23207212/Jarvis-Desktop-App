@@ -83,3 +83,15 @@ describe("Discord relay wording", () => {
     expect(relayLines("to wait for me", "").call).toBe("Hey everyone, Jarvis here. My boss wants you to wait for them.");
   });
 });
+
+describe("Discord desktop voice controls", () => {
+  it("recognises mute and deafen without sending the request to the AI", () => {
+    expect(parseAction("Mute me on Discord")).toEqual({ kind: "discord-control", action: "mute" });
+    expect(parseAction("Hey Jarvis, deafen me on Discord")).toEqual({ kind: "discord-control", action: "deafen" });
+  });
+  it("recognises messages for a saved text channel", () => {
+    expect(parseAction("Send a message to #general saying I'll be back soon")).toEqual({
+      kind: "discord-text", channel: "general", message: "I'll be back soon",
+    });
+  });
+});
