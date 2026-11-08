@@ -36,6 +36,8 @@ jobs:
           python scripts/generate-icons.py
       - name: Validate Electron main process syntax
         run: node --check electron/main.cjs
+      - name: Run automated tests
+        run: npm test
       - name: Build web app
         run: npm run build
       - name: Package ${{ matrix.target }}
