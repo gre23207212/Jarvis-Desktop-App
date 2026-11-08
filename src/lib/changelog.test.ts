@@ -38,3 +38,11 @@ describe("Jarvis self-knowledge", () => {
     expect(consumeVersionChange("1.5.0")).toBeNull();
   });
 });
+
+describe("live release questions", () => {
+  it("checks GitHub instead of guessing the newest version", () => {
+    expect(selfQuery("Is version 1.5.1 the latest?")).toBe("updates");
+    expect(selfQuery("What's the latest Jarvis version?")).toBe("updates");
+    expect(selfQuery("Check GitHub releases")).toBe("updates");
+  });
+});
