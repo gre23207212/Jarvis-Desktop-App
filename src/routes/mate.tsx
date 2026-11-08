@@ -402,7 +402,7 @@ function Mate() {
         if (err && s.brain === "local") {
           // Gemma isn't installed/running yet — answer with the built-in brain instead.
           await cloud("builtin");
-          if (!warned.current) { warned.current = true; full += " (Using my cloud brain for now — set up Gemma in the Mainframe to think locally.)"; }
+          if (!warned.current) { warned.current = true; full += " (Using my cloud brain for now — you can set up local AI in the Mainframe.)"; }
         } else if (err) throw new Error(err);
         setReply(full);
       } else {
@@ -454,9 +454,18 @@ function Mate() {
     const generation = speechGeneration.current;
     const devs = await navigator.mediaDevices.enumerateDevices();
     const systemDevices = await b?.audioDevices?.().catch(() => null);
-    if (!systemDevices?.inputs.some((name) => /cable output/i.test(name)) || !systemDevices?.outputs.some((name) => /cable input/i.test(name))) { cableFailure = "VB-CABLE must provide both CABLE Output (recording) and CABLE Input (playback). Install or enable both devices and restart Jarvis."; return false; }
-    const cable = s.cableIn ? findAudioOutput(devs, s.cableIn) : devs.find((d) => d.kind === "audiooutput" && !["default", "communications"].includes(d.deviceId) && /cable input/i.test(d.label));
-    if (!cable) { cableFailure = "CABLE Input playback device was not found. Check VB-CABLE installation."; return false; }
+    const isCablePlayback = (name: string) => /cable input|vb-audio.*input/i.test(name);
+    const isCableRecording = (name: string) => /cable output|vb-audio.*output/i.test(name);
+    const cable = s.cableIn ? findAudioOutput(devs, s.cableIn) : devs.find((d) => d.kind === "audiooutput" && !["default", "communications"].includes(d.deviceId) && isCablePlayback(d.label));
+    if (!cable) {
+      const available = devs.filter((d) => d.kind === "audiooutput").map((d) => d.label).filter(Boolean).slice(0, 5).join(", ");
+      cableFailure = `VB-CABLE playback device isn't visible to Jarvis. Check Windows Sound settings and browser audio permissions. Playback devices: ${available || "none available"}.`;
+      return false;
+    }
+    if (systemDevices && !systemDevices.inputs.some(isCableRecording)) {
+      cableFailure = "Windows cannot find VB-CABLE's recording endpoint (CABLE Output). Enable it under Sound > More sound settings > Recording, then retry.";
+      return false;
+    }
     const voices = "speechSynthesis" in window ? speechSynthesis.getVoices() : [];
     const voice = voices.find((x) => x.name === s.voiceName) || voices.find((x) => /en-GB/i.test(x.lang) && /daniel|george|ryan|thomas|male/i.test(x.name)) || voices.find((x) => /en-GB/i.test(x.lang));
     setM("speaking");
