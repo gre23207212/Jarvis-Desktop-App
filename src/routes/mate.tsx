@@ -338,7 +338,7 @@ function Mate() {
           const r = await b.checkUpdates().catch(() => null);
           setM("idle");
           if (!r) said = `I couldn't reach GitHub just now, ${tw}. You're on version ${shell}.`;
-          else if (!r.newer) said = `You're on the latest version, ${tw} — ${shell}.`;
+          else if (!r.newer) said = `GitHub reports ${r.tag} as the latest published release, ${tw}. Your installed desktop version is ${shell}, so no newer release is available.`;
           else { setUpdateInfo(r); said = updateMessage(r, titleWord(loadDossier())); }
         }
       }
