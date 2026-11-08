@@ -577,7 +577,8 @@ ipcMain.handle("audio-devices", async () => {
 ipcMain.handle("cable-mic", async (_e, on, opts = {}) => {
   if (!IS_WIN) return { error: "Windows only" };
   if (on) {
-    const r = await ps(`${AUDIO_HEAD()}$mic = [JAudio]::Find(1, $env:JCO); $spk = [JAudio]::Find(0, $env:JCI)
+    if (savedAudio) return { error: "Audio relay is already active." };
+    const r = await ps(`${AUDIO_HEAD()$mic = [JAudio]::Find(1, $env:JCO); $spk = [JAudio]::Find(0, $env:JCI)
 if (-not $mic) { 'nocable'; exit }
 $pm = @(0,1,2 | ForEach-Object { [JAudio]::Default(1, $_) }) -join '|'
 $ps = @(0,1,2 | ForEach-Object { [JAudio]::Default(0, $_) }) -join '|'
