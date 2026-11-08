@@ -5,6 +5,16 @@ export type Release = { version: string; date: string; highlights: string[] };
 // Newest first. Add an entry here (and raise package.json "version") for every release.
 export const CHANGELOG: Release[] = [
   {
+    version: "1.5.2",
+    date: "2026-11",
+    highlights: [
+      "move Discord Rich Presence into System settings and hide the application ID field",
+      "keep protocol progress away from conversation messages",
+      "improve Discord audio troubleshooting and device detection",
+      "organise the Mainframe controls and use clearer local AI descriptions",
+    ],
+  },
+  {
     version: "1.5.1",
     date: "2026-11",
     highlights: [
