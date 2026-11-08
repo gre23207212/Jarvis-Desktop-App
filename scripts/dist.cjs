@@ -129,13 +129,18 @@ async function buildMac() {
   paths.push(...(await packWithPackager("darwin", "arm64")));
   console.log("macOS permissions (microphone, screen capture) prompt on first launch via the Info.plist entries.");
   if (process.platform === "darwin") {
-    for (const appPath of paths.filter((p) => p.endsWith(".app"))) {
-      const dmg = appPath.replace(/\.app$/, ".dmg");
+    for (const bundleDir of paths) {
+      // Electron Packager returns the containing directory, not the .app path.
+      const appPath = path.join(bundleDir, `${NAME}.app`);
+      if (!fs.existsSync(appPath)) throw new Error(`Missing macOS app bundle: ${appPath}`);
+      const arch = /arm64/.test(bundleDir) ? "arm64" : "x64";
+      const dmg = path.join(outDir, `Jarvis-Desktop-darwin-${arch}-v${appPayload().pkg.version}.dmg`);
       console.log(`Creating ${path.basename(dmg)}...`);
-      await run("hdiutil", ["create", "-volname", NAME, "-srcfolder", appPath, "-ov", "-format", "UDZO", dmg]).catch(() => console.warn(`hdiutil failed for ${appPath}; the .app bundle still works.`));
+      await run("hdiutil", ["create", "-volname", NAME, "-srcfolder", appPath, "-ov", "-format", "UDZO", dmg]);
+      if (!fs.existsSync(dmg)) throw new Error(`Missing macOS disk image: ${dmg}`);
     }
   } else {
-    console.log("Note: .dmg creation needs macOS (hdiutil). The .app bundles are ready; run this target on a Mac for DMGs.");
+    throw new Error("macOS .dmg packages must be built on a macOS host.");
   }
   console.log(`\nDone! Artifacts in ${outDir}`);
 }
