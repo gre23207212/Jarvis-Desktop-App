@@ -664,6 +664,7 @@ function Mate() {
     if (act.kind === "window") {
       if (!mod("windows")) return "Window control is switched off in the Mainframe, sir.";
       const r = await b.windowControl?.(act.action, act.app);
+      if (r?.error && r.error !== "notfound") return `${r.error} sir.`;
       return windowReply(act.action, act.app, !!r?.ok);
     }
     if (act.kind === "orbit") {
