@@ -5,8 +5,6 @@
 
 **Current version:** 1.5.3 · **Platforms:** Windows, macOS and Linux · **Status:** Active development
 
-[**Download the latest release**](../../releases/latest) · [**All releases**](../../releases) · [**Build status**](../../actions) · [**Report an issue**](../../issues)
-
 ---
 
 ## What can JARVIS do?
@@ -135,7 +133,3 @@ Do not commit passwords, API keys, session tokens or other secrets.
 JARVIS can interact with local applications, your microphone and selected online services. Only enable features you trust, review permissions and avoid placing sensitive information in public logs or bug reports. Local preferences and dossier information may be stored on your computer; cloud AI requests may be processed by the configured provider.
 
 ---
-
-**JARVIS Desktop** — built to make your computer easier to control, one command at a time.
-
-[Releases](../../releases) · [Issues](../../issues) · [Actions](../../actions)
