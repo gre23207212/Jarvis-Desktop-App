@@ -1,6 +1,6 @@
 // Full OS window & app management: "Jarvis, minimize Chrome" / "bring Discord to the front" / "close Steam".
 
-export type WindowAction = "minimize" | "maximize" | "focus" | "close";
+export type WindowAction = "minimize" | "maximize" | "focus" | "close" | "move-main" | "move-secondary";
 
 const strip = (t: string) => t.trim().replace(/[.!?]+$/, "").replace(/^(?:can you |could you |would you |please |jarvis,? )+/i, "").trim();
 
@@ -13,8 +13,16 @@ export function parseWindowCommand(text: string): { action: WindowAction; app: s
     app = app.replace(/\s+/g, " ");
     return app;
   };
-  let m = s.match(/^minimi[sz]e\s+(.+)$/i);
+  let m = s.match(/^(?:move|put|send|drag|bring)\s+(.+?)\s+(?:to|onto|on|over to|into)\s+(?:my\s+|the\s+)?(?:main|primary|first|second|secondary|other|2nd|1st)(?:\s+(?:monitor|screen|display))$/i);
+  if (m) {
+    const app = clean(m[1]);
+    const destination = s.match(/(?:main|primary|first|1st|second|secondary|other|2nd)(?=\s*(?:monitor|screen|display)?$)/i)?.[0].toLowerCase();
+    if (app && !PRONOUN.test(app) && destination) return { action: /second|secondary|other|2nd/.test(destination) ? "move-secondary" : "move-main", app };
+  }
+  m = s.match(/^minimi[sz]e\s+(.+)$/i);
   if (m) { const app = clean(m[1]); if (app && !PRONOUN.test(app)) return { action: "minimize", app }; }
+  m = s.match(/^(?:make|put)\s+(.+?)\s+(?:full\s*screen|fullscreen|maximi[sz]ed)$/i);
+  if (m) { const app = clean(m[1]); if (app && !PRONOUN.test(app)) return { action: "maximize", app }; }
   m = s.match(/^maximi[sz]e\s+(.+)$/i);
   if (m) { const app = clean(m[1]); if (app && !PRONOUN.test(app)) return { action: "maximize", app }; }
   m = s.match(/^(?:bring|switch to|focus|show|pull up)\s+(.+?)(?:\s+(?:to|in)?to?\s+(?:the\s+)?front|forward|up)?$/i);
@@ -26,5 +34,5 @@ export function parseWindowCommand(text: string): { action: WindowAction; app: s
 
 export const windowReply = (action: WindowAction, app: string, ok: boolean): string =>
   ok
-    ? action === "minimize" ? `Minimising ${app}, sir.` : action === "maximize" ? `${app} is now front and centre, sir.` : action === "focus" ? `Bringing ${app} to the front, sir.` : `Closing ${app}, sir.`
+    ? action === "move-main" ? `Moving ${app} to your main screen, sir.` : action === "move-secondary" ? `Moving ${app} to your second screen, sir.` : action === "minimize" ? `Minimising ${app}, sir.` : action === "maximize" ? `${app} is now front and centre, sir.` : action === "focus" ? `Bringing ${app} to the front, sir.` : `Closing ${app}, sir.`
     : `I couldn't find a window for ${app}, sir.`;
