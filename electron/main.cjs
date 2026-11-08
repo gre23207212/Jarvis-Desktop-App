@@ -410,7 +410,7 @@ function Move-CursorAndClick($item) {
   $endY = [int]($rect.Top + $rect.Height / 2)
   for ($j=1; $j -le 24; $j++) {
     $t=$j/24.0; $ease=$t*$t*(3-2*$t)
-    [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point([int]($start.X+($endX-$start.X)*$ease),[int]($start.Y+($endY-$start.Y)*$ease))
+    [System.Windows.Forms.Cursor]::Position = [System.Drawing.Point]::new([int]($start.X+($endX-$start.X)*$ease),[int]($start.Y+($endY-$start.Y)*$ease))
     Start-Sleep -Milliseconds 16
   }
   Add-Type -TypeDefinition 'using System;using System.Runtime.InteropServices;public class JClick { [DllImport("user32.dll")] public static extern void mouse_event(uint flags,uint x,uint y,uint data,UIntPtr extra); }' -ErrorAction SilentlyContinue
@@ -455,7 +455,7 @@ function Move-CursorAndClick($item) {
   $endY = [int]($rect.Top + $rect.Height / 2)
   for ($j=1; $j -le 24; $j++) {
     $t=$j/24.0; $ease=$t*$t*(3-2*$t)
-    [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point([int]($start.X+($endX-$start.X)*$ease),[int]($start.Y+($endY-$start.Y)*$ease))
+    [System.Windows.Forms.Cursor]::Position = [System.Drawing.Point]::new([int]($start.X+($endX-$start.X)*$ease),[int]($start.Y+($endY-$start.Y)*$ease))
     Start-Sleep -Milliseconds 16
   }
   Add-Type -TypeDefinition 'using System;using System.Runtime.InteropServices;public class JClick { [DllImport("user32.dll")] public static extern void mouse_event(uint flags,uint x,uint y,uint data,UIntPtr extra); }' -ErrorAction SilentlyContinue
@@ -878,7 +878,7 @@ function Move-CursorAndClick($item) {
   $endY = [int]($rect.Top + $rect.Height / 2)
   for ($j=1; $j -le 24; $j++) {
     $t=$j/24.0; $ease=$t*$t*(3-2*$t)
-    [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point([int]($start.X+($endX-$start.X)*$ease),[int]($start.Y+($endY-$start.Y)*$ease))
+    [System.Windows.Forms.Cursor]::Position = [System.Drawing.Point]::new([int]($start.X+($endX-$start.X)*$ease),[int]($start.Y+($endY-$start.Y)*$ease))
     Start-Sleep -Milliseconds 16
   }
   Add-Type -TypeDefinition 'using System;using System.Runtime.InteropServices;public class JClick { [DllImport("user32.dll")] public static extern void mouse_event(uint flags,uint x,uint y,uint data,UIntPtr extra); }' -ErrorAction SilentlyContinue
@@ -929,7 +929,7 @@ function Move-CursorAndClick($item) {
   $endY = [int]($rect.Top + $rect.Height / 2)
   for ($j=1; $j -le 24; $j++) {
     $t=$j/24.0; $ease=$t*$t*(3-2*$t)
-    [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point([int]($start.X+($endX-$start.X)*$ease),[int]($start.Y+($endY-$start.Y)*$ease))
+    [System.Windows.Forms.Cursor]::Position = [System.Drawing.Point]::new([int]($start.X+($endX-$start.X)*$ease),[int]($start.Y+($endY-$start.Y)*$ease))
     Start-Sleep -Milliseconds 16
   }
   Add-Type -TypeDefinition 'using System;using System.Runtime.InteropServices;public class JClick { [DllImport("user32.dll")] public static extern void mouse_event(uint flags,uint x,uint y,uint data,UIntPtr extra); }' -ErrorAction SilentlyContinue
@@ -975,7 +975,7 @@ function Move-CursorAndClick($item) {
   $endY = [int]($rect.Top + $rect.Height / 2)
   for ($j=1; $j -le 24; $j++) {
     $t=$j/24.0; $ease=$t*$t*(3-2*$t)
-    [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point([int]($start.X+($endX-$start.X)*$ease),[int]($start.Y+($endY-$start.Y)*$ease))
+    [System.Windows.Forms.Cursor]::Position = [System.Drawing.Point]::new([int]($start.X+($endX-$start.X)*$ease),[int]($start.Y+($endY-$start.Y)*$ease))
     Start-Sleep -Milliseconds 16
   }
   Add-Type -TypeDefinition 'using System;using System.Runtime.InteropServices;public class JClick { [DllImport("user32.dll")] public static extern void mouse_event(uint flags,uint x,uint y,uint data,UIntPtr extra); }' -ErrorAction SilentlyContinue
