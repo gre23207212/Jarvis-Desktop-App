@@ -1,0 +1,3 @@
+ALTER TABLE public.jarvis_remote_devices ADD COLUMN pairing_hash text UNIQUE, ADD COLUMN pairing_expires_at timestamptz;
+COMMENT ON COLUMN public.jarvis_remote_devices.pairing_hash IS 'SHA-256 of a random 60-bit, single-use PC pairing code; never exposed by status calls.';
+COMMENT ON COLUMN public.jarvis_remote_devices.pairing_expires_at IS 'Pairing code expiry; checked atomically when exchanging for a phone capability.';

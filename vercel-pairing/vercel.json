@@ -1,0 +1,24 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "",
+  "outputDirectory": "public",
+  "redirects": [
+    { "source": "/", "destination": "/pairing", "permanent": false },
+    { "source": "/remote", "destination": "/pairing", "permanent": false }
+  ],
+  "rewrites": [
+    { "source": "/pairing", "destination": "https://pocket-jarvis-desktop-mate.lovable.app/pairing" },
+    { "source": "/assets/:path*", "destination": "https://pocket-jarvis-desktop-mate.lovable.app/assets/:path*" },
+    { "source": "/__l5e/:path*", "destination": "https://pocket-jarvis-desktop-mate.lovable.app/__l5e/:path*" },
+    { "source": "/_serverFn/:path*", "destination": "https://pocket-jarvis-desktop-mate.lovable.app/_serverFn/:path*" },
+    { "source": "/api/transcribe", "destination": "https://pocket-jarvis-desktop-mate.lovable.app/api/transcribe" },
+    { "source": "/favicon.png", "destination": "https://pocket-jarvis-desktop-mate.lovable.app/favicon.png" }
+  ],
+  "headers": [
+    { "source": "/(.*)", "headers": [
+      { "key": "Referrer-Policy", "value": "no-referrer" },
+      { "key": "Permissions-Policy", "value": "microphone=(self)" },
+      { "key": "X-Content-Type-Options", "value": "nosniff" }
+    ] }
+  ]
+}

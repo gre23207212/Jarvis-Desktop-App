@@ -1,0 +1,22 @@
+# Jarvis roadmap
+- [ ] Use the selected voice for Discord and local monitoring, keep automatic system fallback, and package the updated Windows desktop ZIP.
+- [x] Add /pairing and a pairing-only Vercel deployment configuration; document import settings and verify local pairing/command flow and restricted forwarding rules.
+- [ ] Deploy and verify the live Vercel forwarding site; blocked on the user's Vercel project/account access and chosen available project name.
+- [x] Replace private-link pairing with a phone entry page and an expiring, single-use code displayed on the PC. Verified real pairing, invalid/reused-code rejection, command delivery/results and mobile layout with a simulated desktop; actual Discord playback remains unverified.
+- [x] Explain phone control and add launch welcome, local date/time, opt-in public news, remembered topic and friendly closing. Browser flow verified with real public headlines and simulated desktop/speech; Windows launch and audible microphone interaction remain unverified.
+- [x] Remove visible platform branding without breaking hosting
+- [x] Persist Jarvis memory and conversation context; add memory management
+- [x] Test saved memory and conversation recall
+- [x] New cyan J logo: exe icon, taskbar, tray, favicon
+- [x] "Hey Jarvis" wake word using default mic
+- [x] Only logo visible; hover shows pencil + speak buttons; terminal-style type box
+- [x] Fix sleep mode stuck; fix visible background; fix look on white screens
+- [x] Custom tray popup menu (Jarvis styled) instead of plain menu
+- [x] Mainframe settings window: brain (built-in, local Gemma via Ollama, own key/model), voice
+- [x] Repackage Windows zip
+- [x] Hop in a VC on Discord and tell my friends…' → join saved channel, speak via VB-Cable
+- [x] Ask for a saved Discord channel and listen for the name before joining; preserve the relay message. Selection tested in browser with a simulated desktop connection; real microphone/Windows Discord remains unverified.
+- [x] Use they/them in Discord relay messages and retain post-message muting.
+- [x] Add secure phone pairing, typed/spoken remote Discord commands and PC status/results.
+- [x] Verify real pairing, command delivery/results and revoked access with a simulated desktop; document setup. Real Windows/Discord and phone microphone remain unverified.
+- [x] Vercel site: send every page to /pairing, fix missing logo, show the Vercel pairing link on PC.

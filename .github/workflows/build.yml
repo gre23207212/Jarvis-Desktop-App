@@ -1,0 +1,44 @@
+name: Build desktop packages
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: win
+            artifact: Jarvis-Desktop-win32-x64
+          - os: macos-latest
+            target: mac
+            artifact: Jarvis-Desktop-darwin-x64
+          - os: ubuntu-latest
+            target: linux
+            artifact: Jarvis-Desktop-linux-x64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Build web app
+        run: npm run build
+      - name: Package ${{ matrix.target }}
+        run: node scripts/dist.cjs --target=${{ matrix.target }}
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: |
+            electron-release/*.zip
+            electron-release/*.dmg
+            electron-release/*.AppImage
+            electron-release/*.tar.gz
+          if-no-files-found: warn
