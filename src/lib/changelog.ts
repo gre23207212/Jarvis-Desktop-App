@@ -5,6 +5,15 @@ export type Release = { version: string; date: string; highlights: string[] };
 // Newest first. Add an entry here (and raise package.json "version") for every release.
 export const CHANGELOG: Release[] = [
   {
+    version: "1.5.1",
+    date: "2026-11",
+    highlights: [
+      "recognise version 1.5.1 as a patch update",
+      "explain my available skills when you ask what I can do",
+      "read the latest release notes aloud when you ask what is new",
+    ],
+  },
+  {
     version: "1.5.0",
     date: "2026-06",
     highlights: [
