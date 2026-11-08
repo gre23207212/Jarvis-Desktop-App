@@ -3,6 +3,7 @@ name: Build desktop packages
 on:
   workflow_dispatch:
   push:
+    branches: ["main"]
     tags: ["v*"]
 
 jobs:
@@ -46,11 +47,12 @@ jobs:
   release:
     name: Publish GitHub release
     needs: build
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           path: release-assets
@@ -59,7 +61,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          TAG: ${{ github.ref_name }}
+          REF_NAME: ${{ github.ref_name }}
         shell: bash
         run: |
           shopt -s nullglob globstar
@@ -68,4 +70,13 @@ jobs:
             echo "No release packages were built." >&2
             exit 1
           fi
-          gh release create "$TAG" "${files[@]}" --title "Jarvis Desktop $TAG" --generate-notes --verify-tag
+          TAG="v$(node -p "require('./package.json').version")"
+          if [[ "$REF_NAME" == v* && "$REF_NAME" != "$TAG" ]]; then
+            echo "Tag $REF_NAME does not match package version $TAG" >&2
+            exit 1
+          fi
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists; no duplicate will be created."
+            exit 0
+          fi
+          gh release create "$TAG" "${files[@]}" --target "$GITHUB_SHA" --title "Jarvis Desktop $TAG" --generate-notes
