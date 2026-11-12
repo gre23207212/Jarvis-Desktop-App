@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { Mic, MicOff, Send, Volume2, VolumeX } from "lucide-react";
+import { Footer } from "@/components/Footer";
+import { SupportChat } from "@/components/SupportChat";
 import { loadMemory, memoryCommand, memoryContext, saveConversation } from "@/lib/memory";
 
 export const Route = createFileRoute("/")({
@@ -220,6 +222,8 @@ function Jarvis() {
           <Send size={20} />
         </button>
       </form>
+      <Footer />
+      <SupportChat />
     </main>
   );
 }
